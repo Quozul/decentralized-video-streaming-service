@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Remote</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Roboto', 'Calibri', sans-serif;
+            box-sizing: border-box;
+            margin: 0;
+            background-color: #334;
+            min-height: 100vh;
+        }
+
+        #files {
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; 
+            grid-template-rows: 1fr 1fr 1fr; 
+        }
+
+        #files div {
+            background-color: #222;
+            padding: 1em;
+            box-shadow: inset 0 0 0 .5em #334;
+            color: white;
+            padding: 1em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            background-color: lightblue;
+            z-index: 100;
+        }
+
+        #controls div {
+            display: inline-block;
+            padding: 1em;
+            cursor: pointer;
+            user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    
+    <script src="/socket.io/socket.io.js"></script>
+
+    <div id="files"></div>
+
+    <div id="controls">
+        <div id="toggle_pause">Play/Pause</div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        const filelist = document.getElementById("files");
+
+        let files = null;
+        let path = "/Is the Order a Rabbit"
+
+        fetch("/files")
+            .then(res => res.json())
+            .then(json => {
+                files = json;
+                buildFileList();
+            });
+
+        document.getElementById("toggle_pause").addEventListener("click", () => {
+            socket.emit("controls", {action: "play"});
+        })
+
+        function findFolder(folders, files) {
+            for (let i = 0; i < folders.length; i++) {
+                const name = folders[i];
+
+                for (const file of files) {
+                    if (file.dir === name) {
+                        folders.shift();
+                        return findFolder(folders, file.content) ?? file.content;
+                    }
+                }
+            }
+
+            return files;
+        }
+
+        function buildFileList() {
+            const folders = path.split(/\//g);
+            let folder = findFolder(folders, files);
+
+            filelist.innerHTML = folder !== null ? "" : "Sorry, something weird happened";
+
+            if (path !== "/") {
+                const div = document.createElement("div");
+
+                div.innerText = "← Back";
+                div.addEventListener("click", () => {
+                    let newPath = path.split(/\//g);
+                    newPath.pop();
+                    path = newPath.join("/");
+                    if (path.length === 0) path = "/";
+                    buildFileList();
+                });
+
+                filelist.append(div);
+            }
+
+            if (folder !== null) {
+                for (const file of folder) {
+                    const div = document.createElement("div");
+
+                    div.innerText = file.dir ?? file;
+
+                    if (file.dir !== undefined) {
+                        div.addEventListener("click", () => {
+                            path += "/" + file.dir;
+                            buildFileList();
+                        });
+                    } else {
+                        div.addEventListener("click", () => {
+                            socket.emit("watch", path + "/" + file);
+                        });
+                    }
+
+                    filelist.append(div);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
