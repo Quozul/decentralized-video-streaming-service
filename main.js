@@ -1,8 +1,40 @@
-const app = require('express')();
-const http = require('http').Server(app);
-const io = require('socket.io')(http);
-const port = process.env.PORT || 3000;
-const fs = require("fs");
+const fs = require('fs');
+const https = require('https');
+const { ExpressPeerServer } = require('peer');
+const express = require('express');
+const app = express();
+
+const options = {
+    key: fs.readFileSync('./ssl/file.pem'),
+    cert: fs.readFileSync('./ssl/file.crt')
+};
+const serverPort = 443;
+
+const server = https.createServer(options, app);
+const io = require('socket.io')(server);
+
+server.listen(serverPort);
+
+const peerServer = ExpressPeerServer(server, {
+    path: '/myapp',
+    ssl: {
+        key: options.key,
+        cert: options.cert,
+    },
+    allow_discovery: true,
+});
+
+peerServer.on('connection', (client) => {
+    //console.log("a client connected", client.getId());
+    io.emit("user connected", client.getId());
+});
+
+peerServer.on('disconnect', (client) => {
+    //console.log("a client disconnected", client.getId());
+    io.emit("user disconnected", client.getId());
+});
+
+app.use('/peerjs', peerServer);
 
 // https://github.com/Quozul/quozul.dev/commit/bc688417474b830d8c7c93602e867237e5d63dcd#diff-7bc7852aa59f7f227355a565a6c0deb932006d951752734232558c29d05d4083R17-R30
 function recursive_dir_scan(directory) {
@@ -28,12 +60,24 @@ const filepaths = recursive_dir_scan(root);
 
 let filePath = "/Is the Order a Rabbit\\Season 1 - Is the Order a Rabbit\\0 - NA - PV.mp4";
 
+app.get('/', (req, res) => {
+    res.send("Hello World!");
+});
+
 app.get('/tv', (req, res) => {
-    res.sendFile(__dirname + '/tv.html');
+    res.sendFile(__dirname + '/views/tv.html');
+});
+
+app.get('/tv_experimental', (req, res) => {
+    res.sendFile(__dirname + '/views/tv_experimental.html');
+});
+
+app.get('/remote_experimental', (req, res) => {
+    res.sendFile(__dirname + '/views/remote_experimental.html');
 });
 
 app.get('/remote', (req, res) => {
-    res.sendFile(__dirname + '/remote.html');
+    res.sendFile(__dirname + '/views/remote.html');
 });
 
 // https://dev.to/abdisalan_js/how-to-code-a-video-streaming-server-using-nodejs-2o0
@@ -125,6 +169,6 @@ io.on('connection', (socket) => {
     });
 });
 
-http.listen(port, () => {
+/*http.listen(port, () => {
     console.log(`Socket.IO server running at http://localhost:${port}/`);
-});
+});*/

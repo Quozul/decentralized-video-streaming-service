@@ -4,12 +4,17 @@
   "description": "",
   "main": "main.js",
   "scripts": {
+    "dev": "nodemon main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.1",
+    "peer": "^0.6.1",
     "socket.io": "^4.1.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.12"
   }
 }
