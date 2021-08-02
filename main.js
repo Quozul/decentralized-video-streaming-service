@@ -25,12 +25,12 @@ const peerServer = ExpressPeerServer(server, {
 });
 
 peerServer.on('connection', (client) => {
-    //console.log("a client connected", client.getId());
+    console.log("a client connected", client.getId());
     io.emit("user connected", client.getId());
 });
 
 peerServer.on('disconnect', (client) => {
-    //console.log("a client disconnected", client.getId());
+    console.log("a client disconnected", client.getId());
     io.emit("user disconnected", client.getId());
 });
 

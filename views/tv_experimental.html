@@ -21,135 +21,154 @@
             color: white;
         }
 
-        #fileBrowser {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
+        video, img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
         }
 
-        #fileBrowser div {
-            background-color: #222;
-            padding: 1em;
-            box-shadow: inset 0 0 0 .5em #334;
-            color: white;
-            padding: 1em;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            cursor: pointer;
-            user-select: none;
+        #controls {
+            z-index: 10;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
     </style>
 </head>
 
 <body>
-<div id="fileBrowser"></div>
-<button id="allowAccess" onclick="getFile()">Allow access</button>
-<div id="peerId">We're opening the gate for you, it shouldn't take too long.</div>
+
+<video id="video" controls style="display: none;"></video>
+<img id="image" style="display: none;">
+<div id="controls">
+    <button id="allowAccess" onclick="getFile()">Allow access</button>
+    <div id="peerId">We're opening the gate for you, it shouldn't take too long.</div>
+</div>
+
 <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+<script src="/js/subtitles-octopus.js"></script>
+
 <script>
-    const fileBrowser = document.getElementById("fileBrowser");
     let directoryHandle, connection;
+    /**
+     * @type {HTMLVideoElement}
+     */
+    const video = document.getElementById("video");
+    const image = document.getElementById("image");
+    const controls = document.getElementById("controls");
 
     const peer = new Peer({
-        host: 'localhost',
+        host: window.location.hostname,
         port: 443,
         path: '/peerjs/myapp',
         secure: true,
+    });
+
+    video.addEventListener("play", () => {
+        controls.style.display = "none";
+    });
+    video.addEventListener("pause", () => {
+        controls.style.display = "block";
     });
 
     peer.on("open", (id) => {
         document.getElementById("peerId").innerText = "You're successfully connected, your id is: " + id;
     });
 
+    let instance;
     peer.on('connection', (conn) => {
-        console.log("Someone connected to you ", conn.peer);
+        if (connection) connection.close(); // Disconnect previously connected user
+        connection = conn;
 
-        if (window.confirm("Someone connected to you: " + conn.peer)) {
-            if (connection) connection.close(); // Disconnect previously connected user
-            connection = conn;
+        conn.on("data", async (data) => {
+            if (!directoryHandle) return;
 
-            let readingFile;
+            // Receive instruction
+            const [action, content] = data;
+            /**
+             * @type {FileSystemFileHandle|FileSystemDirectoryHandle}
+             */
+            let handler;
+            /**
+             * @type {File}
+             */
+            let file;
 
-            conn.on("data", async (data) => {
-                if (!directoryHandle) return;
+            switch (action) {
+                case "dir": {
+                    handler = await findHandler(directoryHandle, content);
+                    const res = await serializeDirectory(handler);
+                    conn.send(["dir", res]);
+                    break;
+                }
+                case "file": {
+                    const path = Array.from(content);
+                    const filename = path.pop();
+                    const fileDirectoryHandle = await findHandler(directoryHandle, path);
+                    const handler = await findHandler(fileDirectoryHandle, [filename]);
+                    file = await handler.getFile();
 
-                // Receive instruction
-                const [action, content] = data;
-                let handler, file;
+                    switch (file.type.split("/")[0]) {
+                        case "video": {
+                            const subtitles = await findHandler(fileDirectoryHandle, [filename.replace(".mp4", ".fr-FR.ass")]);
 
-                switch (action) {
-                    case "dir": {
-                        handler = await findHandler(directoryHandle, content);
-                        const res = await serializeDirectory(handler);
-                        conn.send(["dir", res]);
-                        break;
-                    }
-                    case "file": {
-                        handler = await findHandler(directoryHandle, content);
-                        file = await handler.getFile();
+                            const options = {
+                                video: video, // HTML5 video element
+                                subUrl: URL.createObjectURL(await subtitles.getFile()), // Link to subtitles
+                                workerUrl: '/js/subtitles-octopus-worker.js', // Link to WebAssembly-based file "libassjs-worker.js"
+                                legacyWorkerUrl: '/js/subtitles-octopus-worker-legacy.js' // Link to non-WebAssembly worker
+                            };
+                            instance?.dispose();
+                            instance = new SubtitlesOctopus(options);
 
-                        /*const mp4boxfile = MP4Box.createFile();
-
-                        mp4boxfile.onError = function (e) {
-                            console.error(e);
-                        };
-                        mp4boxfile.onReady = function (info) {
-                            console.log("Received File Information", info);
-                        };
-                        mp4boxfile.onMoovStart = function () {
-                            console.log("Starting to receive File Information");
-                        }
-
-                        mp4boxfile.start();
-
-                        const reader = file.stream().getReader();
-                        let chunk, offset = 0;
-                        while ((chunk = await reader.read()).done === false) {
-                            const buffer = new ArrayBuffer(chunk.value);
-                            buffer.fileStart = offset;
-                            console.log(offset / file.size * 100);
-                            mp4boxfile.appendBuffer(buffer);
-                            offset += chunk.value.byteLength;
+                            video.src = URL.createObjectURL(file);
+                            image.style.display = "none";
+                            video.style.display = "block";
+                            video.play();
                             break;
                         }
-
-                        mp4boxfile.flush();*/
-
-                        readingFile = content;
-                        conn.send(["file", [file.size, file.type]]);
-                        break;
-                    }
-                    case "data": {
-                        handler = await findHandler(directoryHandle, readingFile);
-                        file = await handler.getFile();
-                        const reader = file.stream().getReader();
-                        let chunk, read = 0;
-                        while ((chunk = await reader.read()).done === false) {
-                            if ((read += chunk.value.length) >= content) {
-                                conn.send(["data", chunk.value]);
-                                break;
-                            }
+                        case "image": {
+                            image.src = URL.createObjectURL(file);
+                            image.style.display = "block";
+                            video.style.display = "none";
+                            video.pause();
+                            break;
                         }
-                        break;
                     }
+                    break;
                 }
-            });
+                case "controls": {
+                    switch (content) {
+                        case "toggle":
+                            if (video.paused) video.play();
+                            else video.pause();
+                            break;
+                        case "time+":
+                            video.currentTime = Math.min(video.duration, video.currentTime + 10);
+                            break;
+                        case "time-":
+                            video.currentTime = Math.max(0, video.currentTime - 10);
+                            break;
+                    }
+                    break;
+                }
+            }
+        });
 
-            conn.on("open", async () => {
-                if (directoryHandle)
-                    conn.send(["dir", await serializeDirectory(directoryHandle)]);
-            });
-        } else {
-            conn.close();
-        }
+        conn.on("open", async () => {
+            instance?.dispose();
+            if (directoryHandle)
+                conn.send(["dir", await serializeDirectory(directoryHandle)]);
+        });
     });
 
     /**
      * @param {FileSystemDirectoryHandle} root
      * @param {string[]} path
-     * @returns {Promise<void>}
+     * @returns {Promise<FileSystemFileHandle|FileSystemDirectoryHandle>}
      */
     async function findHandler(root, path = []) {
         const entries = root.entries();
@@ -181,52 +200,18 @@
         while ((entry = await entries.next()).done === false) {
             const [name, handle] = entry.value;
 
-            response.push([name, handle.kind]);
+            if (handle.kind === "file") {
+                const type = (await handle.getFile()).type.split("/")[0];
+
+                if (type === "video" || type === "image") {
+                    response.push([name, handle.kind]);
+                }
+            } else {
+                response.push([name, handle.kind]);
+            }
         }
 
         return response;
-    }
-
-    /**
-     * @param {FileSystemDirectoryHandle} directoryHandle
-     * @param {FileSystemDirectoryHandle[]} previous
-     * @returns {Promise<void>}
-     */
-    async function buildDirectoryView(directoryHandle, previous = []) {
-        fileBrowser.innerHTML = "";
-
-        if (previous.length > 0) {
-            const div = document.createElement("div");
-
-            div.innerText = "← Back";
-            div.addEventListener("click", () => {
-                buildDirectoryView(previous.pop(), previous);
-            });
-
-            fileBrowser.append(div);
-        }
-
-        const entries = directoryHandle.entries();
-        let entry;
-        while ((entry = await entries.next()).done === false) {
-            const [name, handle] = entry.value;
-
-            const div = document.createElement("div");
-            div.innerText = name;
-
-            if (handle.kind === "directory") {
-                div.addEventListener("click", () => {
-                    previous.push(directoryHandle);
-                    buildDirectoryView(handle, previous);
-                });
-            } else {
-                div.addEventListener("click", () => {
-                    console.log("Opening file");
-                });
-            }
-
-            fileBrowser.append(div);
-        }
     }
 
     async function getFile() {
@@ -237,8 +222,6 @@
 
         if (connection)
             connection.send(["dir", await serializeDirectory(directoryHandle)]);
-
-        //await buildDirectoryView(directoryHandle);
     }
 </script>
 </body>
