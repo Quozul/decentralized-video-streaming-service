@@ -16,6 +16,18 @@
             user-select: none;
         }
 
+        @keyframes rainbow {
+            0% {
+                background-position: 0% 82%
+            }
+            50% {
+                background-position: 100% 19%
+            }
+            100% {
+                background-position: 0% 82%
+            }
+        }
+
         body {
             font-family: 'Roboto', 'Calibri', sans-serif;
             box-sizing: border-box;
@@ -23,6 +35,19 @@
             background-color: #334;
             height: 100vh;
             color: white;
+        }
+
+        #loading {
+            position: absolute;
+            z-index: 1000;
+            width: 100vw;
+            opacity: 0;
+            transition: width .2s, opacity .2s;
+            height: .5em;
+            box-shadow: rgba(0, 0, 0, .5) 0 0 10px;
+            animation: rainbow 18s ease infinite;
+            background: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
+            background-size: 1800% 1800%;
         }
 
         .browser {
@@ -36,7 +61,7 @@
             background-color: #222;
             color: white;
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
             text-align: center;
             cursor: pointer;
@@ -53,7 +78,7 @@
             width: 100vw;
             -webkit-transform: translateZ(0);
             transform: translateZ(0);
-            z-index: 1000;
+            z-index: 100;
         }
 
         header > div, footer > div {
@@ -78,6 +103,8 @@
 </head>
 
 <body>
+
+<div id="loading"></div>
 
 <header>
     <div>
@@ -132,6 +159,7 @@
     const path = document.getElementById("path");
     const status = document.getElementById("status");
     const disconnect = document.getElementById("disconnect");
+    const loading = document.getElementById("loading");
 
     let conn, previous = [];
 
@@ -176,17 +204,28 @@
         }
 
         for (let i = 0; i < content.length; i++) {
-            const [name, kind] = content[i];
+            const [name, kind, blob] = content[i];
 
             const div = document.createElement("div");
             div.innerText = name;
 
             if (kind === "directory") {
                 div.addEventListener("click", () => {
+                    loading.style.opacity = "1";
                     previous.push(name);
                     conn.send(["dir", previous]);
                 });
             } else {
+                if (blob !== undefined) {
+                    const src = URL.createObjectURL(new Blob([blob]));
+                    const img = document.createElement("img");
+                    img.style.width = "100px";
+                    img.style.height = "100px";
+                    img.style.objectFit = "contain";
+                    img.src = src;
+                    div.prepend(img);
+                }
+
                 div.addEventListener("click", () => {
                     conn.send(["file", [...previous, name]]);
                 });
@@ -219,7 +258,12 @@
             const [action, content] = data;
             switch (action) {
                 case "dir":
+                    loading.style.opacity = "0";
                     buildDirectoryView(content);
+                    break;
+                case "progress":
+                    const [current, total] = content;
+                    loading.style.width = `${current / total * 100}vw`;
                     break;
             }
         });

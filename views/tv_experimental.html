@@ -42,7 +42,9 @@
 <body>
 
 <video id="video" controls style="display: none;"></video>
-<img id="image" style="display: none;">
+<img id="image" style="display: none;" alt="Image">
+<canvas id="thumbnail" style="display: none;"></canvas>
+
 <div id="controls">
     <button id="allowAccess" onclick="getFile()">Allow access</button>
     <div id="peerId">We're opening the gate for you, it shouldn't take too long.</div>
@@ -59,6 +61,10 @@
     const video = document.getElementById("video");
     const image = document.getElementById("image");
     const controls = document.getElementById("controls");
+    /**
+     * @type {HTMLCanvasElement}
+     */
+    const thumbnail = document.getElementById("thumbnail");
 
     const peer = new Peer({
         host: window.location.hostname,
@@ -115,14 +121,17 @@
                         case "video": {
                             const subtitles = await findHandler(fileDirectoryHandle, [filename.replace(".mp4", ".fr-FR.ass")]);
 
-                            const options = {
-                                video: video, // HTML5 video element
-                                subUrl: URL.createObjectURL(await subtitles.getFile()), // Link to subtitles
-                                workerUrl: '/js/subtitles-octopus-worker.js', // Link to WebAssembly-based file "libassjs-worker.js"
-                                legacyWorkerUrl: '/js/subtitles-octopus-worker-legacy.js' // Link to non-WebAssembly worker
-                            };
                             instance?.dispose();
-                            instance = new SubtitlesOctopus(options);
+
+                            if (subtitles !== null) {
+                                const options = {
+                                    video: video, // HTML5 video element
+                                    subUrl: URL.createObjectURL(await subtitles.getFile()), // Link to subtitles
+                                    workerUrl: '/js/subtitles-octopus-worker.js', // Link to WebAssembly-based file "libassjs-worker.js"
+                                    legacyWorkerUrl: '/js/subtitles-octopus-worker-legacy.js' // Link to non-WebAssembly worker
+                                };
+                                instance = new SubtitlesOctopus(options);
+                            }
 
                             video.src = URL.createObjectURL(file);
                             image.style.display = "none";
@@ -171,6 +180,8 @@
      * @returns {Promise<FileSystemFileHandle|FileSystemDirectoryHandle>}
      */
     async function findHandler(root, path = []) {
+        if (path.length === 0) return root;
+
         const entries = root.entries();
         let entry;
         while ((entry = await entries.next()).done === false) {
@@ -185,7 +196,34 @@
             }
         }
 
-        return root;
+        return null;
+    }
+
+    function getThumbnail(file, canvas) {
+        return new Promise(resolve => {
+            const video = document.createElement("video");
+            video.style.display = "none";
+            document.body.append(video);
+            video.src = URL.createObjectURL(file);
+
+            video.addEventListener("loadedmetadata", () => {
+                const time = Math.floor(Math.random() * video.duration);
+                video.currentTime = time;
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+            });
+
+            video.addEventListener("timeupdate", () => {
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+                canvas.toBlob(blob => {
+                    resolve(blob);
+                    video.remove();
+                });
+            });
+        });
     }
 
     /**
@@ -195,21 +233,34 @@
     async function serializeDirectory(directoryHandle) {
         const response = [];
 
+        let total = 0, i = 0;
+        const iter = directoryHandle.entries();
+        while (!(await iter.next()).done) total++;
+
         const entries = directoryHandle.entries();
         let entry;
-        while ((entry = await entries.next()).done === false) {
+        while (!(entry = await entries.next()).done) {
+            connection.send(["progress", [i++, total]]);
             const [name, handle] = entry.value;
 
             if (handle.kind === "file") {
-                const type = (await handle.getFile()).type.split("/")[0];
+                const file = await handle.getFile();
+                const type = file.type.split("/")[0];
 
                 if (type === "video" || type === "image") {
-                    response.push([name, handle.kind]);
+                    let blob;
+                    if (type === "video") {
+                        blob = await getThumbnail(file, thumbnail);
+                    }
+
+                    response.push([name, handle.kind, blob]);
                 }
             } else {
                 response.push([name, handle.kind]);
             }
         }
+
+        connection.send(["progress", [total, total]]);
 
         return response;
     }
@@ -220,8 +271,10 @@
 
         document.getElementById("allowAccess").innerText = "Folder opened: " + directoryHandle.name;
 
-        if (connection)
-            connection.send(["dir", await serializeDirectory(directoryHandle)]);
+        if (connection) {
+            const directory = await serializeDirectory(directoryHandle);
+            connection.send(["dir", directory]);
+        }
     }
 </script>
 </body>
