@@ -90,7 +90,12 @@ peer.on('connection', (conn) => {
                     };
                     mp4boxfile.onReady = function(info) {
                         console.log(info.mime, MediaSource.isTypeSupported(info.mime));
-                        conn.send(["file", [file.size, file.name, info.mime]]);
+                        if (info.isFragmented) {
+                            console.log(info);
+                            conn.send(["file", [file.size, file.name, info.mime]]);
+                        } else {
+                            console.log("Requested file is not fragmented, cannot stream.");
+                        }
                     }
 
                     const reader = new FileReader();

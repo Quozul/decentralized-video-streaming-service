@@ -21,6 +21,43 @@ const loading = document.getElementById("loading");
 /** @type {HTMLVideoElement} */
 const video = document.getElementById("video");
 
+video.addEventListener("progress", (e) => { console.log(e.type); });
+video.addEventListener("seeked", (e) => { console.log(e.type); });
+video.addEventListener("seeking", (e) => { console.log(e.type); });
+video.addEventListener("stalled", (e) => { console.log(e.type); });
+video.addEventListener("suspend", (e) => { console.log(e.type); });
+video.addEventListener("timeupdate", (e) => { console.log(e.type); });
+video.addEventListener("volumechange", (e) => { console.log(e.type); });
+video.addEventListener("waiting", (e) => { console.log(e.type); });
+video.addEventListener("ratechange", (e) => { console.log(e.type); });
+video.addEventListener("playing", (e) => { console.log(e.type); });
+video.addEventListener("play", (e) => { console.log(e.type); });
+video.addEventListener("pause", (e) => { console.log(e.type); });
+video.addEventListener("loadedmetadata", (e) => { console.log(e.type); });
+video.addEventListener("loadeddata", (e) => { console.log(e.type); });
+video.addEventListener("ended", (e) => { console.log(e.type); });
+video.addEventListener("emptied", (e) => { console.log(e.type); });
+video.addEventListener("durationchange", (e) => { console.log(e.type); });
+video.addEventListener("complete", (e) => { console.log(e.type); });
+video.addEventListener("canplaythrough", (e) => { console.log(e.type); });
+video.addEventListener("canplay", (e) => { console.log(e.type); });
+video.addEventListener("audioprocess", (e) => { console.log(e.type); });
+
+video.addEventListener("timeupdate", (e) => {
+    console.log(video.buffered.start(0), video.buffered.end(0));
+    if (video.currentTime + 1 >= video.buffered.end(0)) {
+        conn.send(["data"]);
+    }
+});
+/*
+video.addEventListener("waiting", (e) => {
+    conn.send(["data"]);
+});
+
+video.addEventListener("progress", (e) => {
+    video.play();
+});
+*/
 let conn, previous = [];
 
 function buildUserList() {
@@ -191,7 +228,6 @@ function connect(id) {
                 console.log("received data", value, done);
                 if (!done) {
                     sourceBuffer.appendBuffer(value);
-                    conn.send(["data"]);
                 } else {
                     mediaSource.endOfStream();
                 }
