@@ -18,6 +18,8 @@ const path = document.getElementById("path");
 const status = document.getElementById("status");
 const disconnect = document.getElementById("disconnect");
 const loading = document.getElementById("loading");
+/** @type {HTMLVideoElement} */
+const video = document.getElementById("video");
 
 let conn, previous = [];
 
@@ -116,10 +118,18 @@ function connect(id) {
         });
     });
 
+    let mediaSource = new MediaSource();
+    mediaSource.onsourceopen = function (e) {
+        console.log("media source opened")
+    }
+    /** @type {SourceBuffer} */
+    let sourceBuffer;
+    video.src = URL.createObjectURL(mediaSource);
+
     conn.on("data", async (data) => {
         const [action, content] = data;
         switch (action) {
-            case "dir":
+            case "dir": {
                 const [current, total, name, kind, mime, blob] = content;
                 loading.style.width = `${current / total * 100}vw`;
 
@@ -129,7 +139,6 @@ function connect(id) {
 
                 if (kind === "file" && mime) {
                     const type = mime.split("/")[0];
-                    console.log(type, type !== "video" && type !== "image");
                     if (type === "video" || type === "image") {
                         buildDirectoryElement(name, kind, blob);
                     }
@@ -142,6 +151,33 @@ function connect(id) {
                 }
 
                 break;
+            }
+            case "file": {
+                const [size, name, mime] = content;
+                console.log(mime);
+                if (sourceBuffer) {
+                    console.log("remove source buffer");
+                    //mediaSource.removeSourceBuffer(sourceBuffer); // Remove previous buffer
+                }
+
+                console.log("adding source");
+                sourceBuffer = mediaSource.addSourceBuffer(mime); // Create new buffer
+                sourceBuffer.onupdate = function (e) {
+                    console.log("update", e);
+                }
+                console.log(sourceBuffer);
+                conn.send(["data"]); // Ask for data
+                break;
+            }
+            case "data": {
+                const [value, done] = content;
+                if (!done) {
+                    console.log("append data", value);
+                    sourceBuffer.appendBuffer(value);
+                    conn.send(["data"]);
+                }
+                break;
+            }
         }
     });
 

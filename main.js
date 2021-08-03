@@ -152,8 +152,8 @@ app.get('/subtitles', (req, res) => {
     }
 });
 
-app.get('/js/:file', (req, res) => {
-    res.sendFile(__dirname + "/js/" + req.params.file);
+app.get('/js/*', (req, res) => {
+    res.sendFile(__dirname + "/js/" + req.params[0]);
 });
 
 io.on('connection', (socket) => {

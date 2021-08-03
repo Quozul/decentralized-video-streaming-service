@@ -26,10 +26,35 @@ peer.on("open", (id) => {
     document.getElementById("peerId").innerText = "You're successfully connected, your id is: " + id;
 });
 
+/**
+ * @param file
+ * @param chunksize
+ * @returns {Promise<unknown>}
+ */
+function readFile(file, chunksize = 10e6) {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+
+        let offset = 0;
+        reader.onload = function (e) {
+            const buffer = e.target.result;
+
+            resolve(function * () {
+                yield buffer.slice(offset, offset + chunksize);
+                offset += chunksize;
+            });
+        }
+    });
+}
+
 let instance;
 peer.on('connection', (conn) => {
     if (connection) connection.close(); // Disconnect previously connected user
     connection = conn;
+
+    let filename;
+    let filereader;
 
     conn.on("data", async (data) => {
         if (!directoryHandle) return;
@@ -49,41 +74,32 @@ peer.on('connection', (conn) => {
             }
             case "file": {
                 const path = Array.from(content);
-                const filename = path.pop();
+                filename = path.pop();
                 const fileDirectoryHandle = await findHandler(directoryHandle, path);
                 const handler = await findHandler(fileDirectoryHandle, [filename]);
                 file = await handler.getFile();
 
-                switch (file.type.split("/")[0]) {
-                    case "video": {
-                        const subtitles = await findHandler(fileDirectoryHandle, [filename.replace(".mp4", ".fr-FR.ass")]);
+                filereader = (await readFile(file))();
 
-                        instance?.dispose();
-
-                        if (subtitles !== null) {
-                            const options = {
-                                video: video, // HTML5 video element
-                                subUrl: URL.createObjectURL(await subtitles.getFile()), // Link to subtitles
-                                workerUrl: '/js/subtitles-octopus-worker.js', // Link to WebAssembly-based file "libassjs-worker.js"
-                                legacyWorkerUrl: '/js/subtitles-octopus-worker-legacy.js' // Link to non-WebAssembly worker
-                            };
-                            instance = new SubtitlesOctopus(options);
-                        }
-
-                        video.src = URL.createObjectURL(file);
-                        image.style.display = "none";
-                        video.style.display = "block";
-                        video.play();
-                        break;
+                if (file.type === "video/mp4") {
+                    const mp4boxfile = MP4Box.createFile();
+                    mp4boxfile.onError = function(e) {
+                        console.error(e);
+                    };
+                    mp4boxfile.onReady = function(info) {
+                        conn.send(["file", [file.size, file.name, info.mime]]);
                     }
-                    case "image": {
-                        image.src = URL.createObjectURL(file);
-                        image.style.display = "block";
-                        video.style.display = "none";
-                        video.pause();
-                        break;
-                    }
+
+                    const reader = new FileReader();
+                    reader.readAsArrayBuffer(file);
+                    reader.onload = (e) => {
+                        const buffer = e.target.result;
+                        buffer.fileStart = 0;
+                        mp4boxfile.appendBuffer(buffer);
+                        mp4boxfile.flush();
+                    };
                 }
+
                 break;
             }
             case "controls": {
@@ -100,6 +116,10 @@ peer.on('connection', (conn) => {
                         break;
                 }
                 break;
+            }
+            case "data": {
+                const entry = filereader.next();
+                conn.send(["data", [entry.value, entry.done]]);
             }
         }
     });
@@ -186,10 +206,12 @@ async function sendDirectory(directoryHandle) {
         const [name, handle] = entry.value;
 
         if (handle.kind === "file") {
+            /** @type {File} */
             const file = await handle.getFile();
             const type = file.type.split("/")[0];
 
             if (type === "video" || type === "image") {
+                /** @type {Blob} */
                 let blob;
                 if (type === "video") {
                     blob = await getThumbnail(file, thumbnail);
