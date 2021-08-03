@@ -58,7 +58,7 @@ function readFFmpeg(filename = "fragmented.mp4", chunksize = 1024 * 1024) {
 
     function sendFragment(fragmented) {
         if (fragmented.length > offset) {
-            const newOffset = Math.min(fragmented.length, offset + chunksize);
+            const newOffset = Math.min(fragmented.length, offset + chunksize + 1);
             const f = fragmented.slice(offset, newOffset);
             offset = newOffset;
             asked = false;
@@ -74,37 +74,45 @@ function readFFmpeg(filename = "fragmented.mp4", chunksize = 1024 * 1024) {
             ratio = v;
 
             if (asked && v > 0) {
-                const f = sendFragment();
-                if (f !== null) {
-                    console.log("Sending data...");
-                    connection.send(["data", [f, false]]);
+                try {
+                    const fragmented = ffmpeg.FS("readFile", "fragmented.mp4");
+                    length = fragmented.length;
+
+                    const f = sendFragment(fragmented);
+                    if (f !== null) {
+                        console.log("Sending data...");
+                        connection.send(["data", [f, false]]);
+                    }
+                } catch (e) {
+                    console.error(e);
                 }
             }
         },
         reader: function* () {
-            while (ratio < 1 /* Still being converted */ || (ratio === 1 && offset < length) /* Conversion done but not everything has been sent */) {
-                /** @type {Uint8Array} */
-                let fragmented;
+            while (
+                ratio < 1 /* Still being converted */ ||
+                (ratio === 1 && offset < length) /* Conversion done but not everything has been sent */) {
                 try {
-                    fragmented = ffmpeg.FS('readFile', 'fragmented.mp4');
+                    /** @type {Uint8Array} */
+                    const fragmented = ffmpeg.FS("readFile", "fragmented.mp4");
                     length = fragmented.length;
+
+                    const f = sendFragment(fragmented);
+                    if (f === null) {
+                        console.log("Waiting for data...", f);
+                    }
+                    yield f;
                 } catch (e) {
                     asked = true;
                     yield null;
                 }
-
-                const f = sendFragment(fragmented);
-                if (f === null) {
-                    console.log("Waiting for data...", f);
-                }
-                yield f;
             }
         },
     }
 }
 
 const { createFFmpeg } = FFmpeg;
-const ffmpeg = createFFmpeg({ log: false });
+let ffmpeg = createFFmpeg({ log: false });
 
 let instance;
 peer.on('connection', (conn) => {
@@ -144,8 +152,6 @@ peer.on('connection', (conn) => {
                     const mp4boxfile = MP4Box.createFile();
                     mp4boxfile.onError = function(e) { console.error(e); };
 
-                    let buffer;
-
                     mp4boxfile.onReady = async function(info) {
                         console.log(info.mime, MediaSource.isTypeSupported(info.mime));
 
@@ -160,12 +166,24 @@ peer.on('connection', (conn) => {
                             // https://developer.mozilla.org/en-US/docs/Web/API/Media_Source_Extensions_API/Transcoding_assets_for_MSE
                             console.log("Converting file...");
 
+                            if (ffmpeg.isLoaded()) {
+                                // Destroy previous and recreate FFmpeg, dirty
+                                console.log("Stopping FFmpeg...");
+                                try {
+                                    const r = await ffmpeg.exit();
+                                    console.log(r);
+                                } catch (e) {
+                                    ffmpeg = createFFmpeg({ log: false });
+                                    console.log(e);
+                                }
+                            }
+
                             if (!ffmpeg.isLoaded()) {
                                 console.log("Initializing FFmpeg...");
                                 await ffmpeg.load();
                             }
 
-                            ffmpeg.FS("writeFile", file.name, new Uint8Array(buffer));
+                            ffmpeg.FS("writeFile", file.name, new Uint8Array(await file.arrayBuffer()));
 
                             const reader = readFFmpeg();
                             filereader = reader.reader();
@@ -203,7 +221,7 @@ peer.on('connection', (conn) => {
                     const reader = new FileReader();
                     reader.readAsArrayBuffer(file);
                     reader.onload = (e) => {
-                        buffer = e.target.result;
+                        const buffer = e.target.result;
                         buffer.fileStart = 0;
                         mp4boxfile.appendBuffer(buffer);
                         mp4boxfile.flush();
@@ -229,10 +247,10 @@ peer.on('connection', (conn) => {
             }
             case "data": {
                 const entry = filereader.next();
-                if (entry.value !== null) {
-                    console.log("Requested data...", entry);
+                //if (entry.value !== null) {
+                    //console.log("Requested data...", entry);
                     conn.send(["data", [entry.value, entry.done]]);
-                }
+                //}
                 /*if (entry.done) {
                     try {
                         ffmpeg.FS("unlink", "fragmented.mp4"); // Remove converted file once reading is done

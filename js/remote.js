@@ -22,7 +22,7 @@ const working = document.getElementById("working");
 /** @type {HTMLVideoElement} */
 const video = document.getElementById("video");
 
-video.addEventListener("progress", (e) => { console.log(e.type); });
+/*video.addEventListener("progress", (e) => { console.log(e.type); });
 video.addEventListener("seeked", (e) => { console.log(e.type); });
 video.addEventListener("seeking", (e) => { console.log(e.type); });
 video.addEventListener("stalled", (e) => { console.log(e.type); });
@@ -42,21 +42,27 @@ video.addEventListener("durationchange", (e) => { console.log(e.type); });
 video.addEventListener("complete", (e) => { console.log(e.type); });
 video.addEventListener("canplaythrough", (e) => { console.log(e.type); });
 video.addEventListener("canplay", (e) => { console.log(e.type); });
-video.addEventListener("audioprocess", (e) => { console.log(e.type); });
+video.addEventListener("audioprocess", (e) => { console.log(e.type); });*/
 
 // Amount of seconds to buffer
 let bufferSize = 10;
+// Prevent data from being fetched again
+let waitingData = false;
 video.addEventListener("timeupdate", (e) => {
-    // Video is fully loaded
-    if (video.buffered.length > 0 && video.buffered.end(0) === video.duration) return;
+    if (mediaSource.readyState !== "open" || // Media source is either closed or ended
+        waitingData || // Already waiting for data, don't spam the servver
+        // Video is fully loaded
+        video.buffered.length > 0 && video.buffered.end(0) === video.duration) return;
 
     if (video.buffered.length === 0 || video.currentTime + bufferSize >= video.buffered.end(0)) {
         working.innerText = "Requesting stream data...";
         conn.send(["data"]);
+        waitingData = true;
     }
 });
 
 video.addEventListener("waiting", (e) => {
+    if (waitingData) return;
     working.innerText = "Requesting stream data...";
     conn.send(["data"]);
 });
@@ -212,11 +218,19 @@ function connect(id) {
                 const [size, name, mime] = content;
                 loading.style.opacity = "0";
                 console.log("Received file information", mime, MediaSource.isTypeSupported(mime));
+                waitingData = false;
 
                 if (!MediaSource.isTypeSupported(mime)) {
                     console.log("Type not supported")
                     working.innerText = "Video file can't be streamed.";
                     break;
+                }
+
+                if (mediaSource && mediaSource.readyState === "open") {
+                    mediaSource.endOfStream();
+                    if (sourceBuffer) {
+                        mediaSource.removeSourceBuffer(sourceBuffer);
+                    }
                 }
 
                 mediaSource = new MediaSource();
@@ -245,8 +259,9 @@ function connect(id) {
             }
             case "data": {
                 const [value, done] = content;
-                console.log("Received data", value);
+                console.log("Received data", value, done);
                 working.innerText = "Ready!";
+                waitingData = false;
 
                 if (!done) {
                     if (value === null) {
@@ -254,7 +269,6 @@ function connect(id) {
                     }
 
                     sourceBuffer.appendBuffer(value);
-                    video.play();
                 } else if (mediaSource.readyState === "open") {
                     mediaSource.endOfStream();
                 }
