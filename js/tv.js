@@ -27,11 +27,11 @@ peer.on("open", (id) => {
 });
 
 /**
- * @param file
- * @param chunksize
+ * @param {File} file
+ * @param {number} chunksize default to 1 MB
  * @returns {Promise<unknown>}
  */
-function readFile(file, chunksize = 10e6) {
+function readFile(file, chunksize = 1024 * 1024) {
     return new Promise(resolve => {
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
@@ -41,8 +41,10 @@ function readFile(file, chunksize = 10e6) {
             const buffer = e.target.result;
 
             resolve(function * () {
-                yield buffer.slice(offset, offset + chunksize);
-                offset += chunksize;
+                while (offset < file.size) {
+                    yield buffer.slice(offset, offset + chunksize);
+                    offset += chunksize;
+                }
             });
         }
     });
@@ -87,6 +89,7 @@ peer.on('connection', (conn) => {
                         console.error(e);
                     };
                     mp4boxfile.onReady = function(info) {
+                        console.log(info.mime, MediaSource.isTypeSupported(info.mime));
                         conn.send(["file", [file.size, file.name, info.mime]]);
                     }
 

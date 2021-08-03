@@ -102,6 +102,11 @@ function controls(action) {
     conn.send(["controls", action]);
 }
 
+/** @type {MediaSource} */
+let mediaSource;
+/** @type {SourceBuffer} */
+let sourceBuffer;
+
 /**
  * @param {string} id
  */
@@ -117,14 +122,6 @@ function connect(id) {
             conn.close();
         });
     });
-
-    let mediaSource = new MediaSource();
-    mediaSource.onsourceopen = function (e) {
-        console.log("media source opened")
-    }
-    /** @type {SourceBuffer} */
-    let sourceBuffer;
-    video.src = URL.createObjectURL(mediaSource);
 
     conn.on("data", async (data) => {
         const [action, content] = data;
@@ -155,26 +152,48 @@ function connect(id) {
             case "file": {
                 const [size, name, mime] = content;
                 console.log(mime);
-                if (sourceBuffer) {
-                    console.log("remove source buffer");
-                    //mediaSource.removeSourceBuffer(sourceBuffer); // Remove previous buffer
+
+                if (!MediaSource.isTypeSupported(mime)) {
+                    console.log("type not supported");
+                    break;
                 }
 
-                console.log("adding source");
-                sourceBuffer = mediaSource.addSourceBuffer(mime); // Create new buffer
-                sourceBuffer.onupdate = function (e) {
-                    console.log("update", e);
+                mediaSource = new MediaSource();
+                mediaSource.onsourceopen = function (e) {
+                    console.log("media source opened");
+
+                    console.log("adding source");
+                    sourceBuffer = mediaSource.addSourceBuffer(mime); // Create new buffer
+                    sourceBuffer.onupdatestart = function (e) {
+                        console.log("update", e);
+                    }
+                    sourceBuffer.mode = "sequence";
+
+                    conn.send(["data"]); // Ask for data
+
+                    console.log(sourceBuffer);
                 }
-                console.log(sourceBuffer);
-                conn.send(["data"]); // Ask for data
+
+                mediaSource.onsourceclose = function (e) {
+                    console.log("media source closed");
+                }
+
+                mediaSource.onsourceended = function (e) {
+                    console.log("media source ended");
+                }
+
+                video.src = URL.createObjectURL(mediaSource);
+
                 break;
             }
             case "data": {
                 const [value, done] = content;
+                console.log("received data", value, done);
                 if (!done) {
-                    console.log("append data", value);
                     sourceBuffer.appendBuffer(value);
                     conn.send(["data"]);
+                } else {
+                    mediaSource.endOfStream();
                 }
                 break;
             }
