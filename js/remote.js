@@ -123,9 +123,8 @@ function buildDirectoryElement(name, kind, blob) {
 
 function changeDirectory() {
     working.innerText = "Changing directory...";
-    console.log(fileBrowser);
-    fileBrowser.innerHTML = "";
     loading.style.opacity = "1";
+    fileBrowser.innerHTML = "";
     buildDirectoryView();
 }
 
@@ -177,6 +176,9 @@ function connect(id) {
             conn.close();
         });
     });
+
+    working.innerText = "Loading...";
+    loading.style.opacity = "1";
 
     conn.on("data", async (data) => {
         const [action, content] = data;

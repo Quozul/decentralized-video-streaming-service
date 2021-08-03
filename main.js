@@ -73,6 +73,8 @@ app.get('/tv_experimental', (req, res) => {
 });
 
 app.get('/remote_experimental', (req, res) => {
+    res.set("Cross-Origin-Opener-Policy", "same-origin");
+    res.set("Cross-Origin-Embedder-Policy", "require-corp")
     res.sendFile(__dirname + '/views/remote_experimental.html');
 });
 

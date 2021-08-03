@@ -50,6 +50,9 @@ function readFile(file, chunksize = 1024 * 1024) {
     });
 }
 
+const { createFFmpeg } = FFmpeg;
+const ffmpeg = createFFmpeg({ log: true });
+
 let instance;
 peer.on('connection', (conn) => {
     console.log("User connected " + conn.peer);
@@ -84,22 +87,47 @@ peer.on('connection', (conn) => {
                 const handler = await findHandler(fileDirectoryHandle, [filename]);
                 file = await handler.getFile();
 
-                filereader = (await readFile(file))();
-
                 if (file.type === "video/mp4") {
                     const mp4boxfile = MP4Box.createFile();
                     mp4boxfile.onError = function(e) {
                         console.error(e);
                     };
-                    mp4boxfile.onReady = function(info) {
+
+                    let buffer;
+
+                    mp4boxfile.onReady = async function(info) {
                         console.log(info.mime, MediaSource.isTypeSupported(info.mime));
-                        conn.send(["file", [file.size, file.name, info.mime]]);
+
+                        if (MediaSource.isTypeSupported(info.mime) && info.isFragmented) {
+                            // Video file can be streamed as is
+                            filereader = (await readFile(file))();
+
+                            conn.send(["file", [file.size, file.name, info.mime]]);
+                        } else {
+                            // Video file must be converted as the format is not compatible with MediaSource
+                            // Doc: https://askubuntu.com/a/353282
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Media_Source_Extensions_API/Transcoding_assets_for_MSE
+                            console.log("Converting file...");
+
+                            if (!ffmpeg.isLoaded()) {
+                                console.log("Initializing FFmpeg...");
+                                await ffmpeg.load();
+                            }
+
+                            ffmpeg.FS('writeFile', file.name, new Uint8Array(buffer));
+
+                            // Running ffmpeg can be awaited, "-movflags +faststart" allow playing the file while converting
+                            ffmpeg.run('-i', file.name, '-preset', 'veryfast', '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart', 'fragmented.mp4');
+
+                            const fragmented = ffmpeg.FS('readFile', 'fragmented.mp4');
+                            console.log(fragmented);
+                        }
                     }
 
                     const reader = new FileReader();
                     reader.readAsArrayBuffer(file);
                     reader.onload = (e) => {
-                        const buffer = e.target.result;
+                        buffer = e.target.result;
                         buffer.fileStart = 0;
                         mp4boxfile.appendBuffer(buffer);
                         mp4boxfile.flush();
