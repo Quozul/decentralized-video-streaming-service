@@ -52,6 +52,7 @@ function readFile(file, chunksize = 1024 * 1024) {
 
 let instance;
 peer.on('connection', (conn) => {
+    console.log("User connected " + conn.peer);
     if (connection) connection.close(); // Disconnect previously connected user
     connection = conn;
 
@@ -70,11 +71,13 @@ peer.on('connection', (conn) => {
 
         switch (action) {
             case "dir": {
+                console.log("User viewing folder /" + content.join("/"));
                 handler = await findHandler(directoryHandle, content);
                 sendDirectory(handler);
                 break;
             }
             case "file": {
+                console.log("User viewing file /" + content.join("/"));
                 const path = Array.from(content);
                 filename = path.pop();
                 const fileDirectoryHandle = await findHandler(directoryHandle, path);
@@ -90,12 +93,7 @@ peer.on('connection', (conn) => {
                     };
                     mp4boxfile.onReady = function(info) {
                         console.log(info.mime, MediaSource.isTypeSupported(info.mime));
-                        if (info.isFragmented) {
-                            console.log(info);
-                            conn.send(["file", [file.size, file.name, info.mime]]);
-                        } else {
-                            console.log("Requested file is not fragmented, cannot stream.");
-                        }
+                        conn.send(["file", [file.size, file.name, info.mime]]);
                     }
 
                     const reader = new FileReader();
@@ -217,20 +215,16 @@ async function sendDirectory(directoryHandle) {
             /** @type {File} */
             const file = await handle.getFile();
             const type = file.type.split("/")[0];
+            /** @type {Blob} */
+            let blob;
 
-            if (type === "video" || type === "image") {
-                /** @type {Blob} */
-                let blob;
-                if (type === "video") {
-                    blob = await getThumbnail(file, thumbnail);
-                } else {
-                    blob = file;
-                }
-
-                connection.send(["dir", [++i, total, name, handle.kind, file.type, blob]]);
+            if (type === "video") {
+                blob = await getThumbnail(file, thumbnail);
             } else {
-                connection.send(["dir", [++i, total, name, handle.kind, file.type]]);
+                blob = file;
             }
+
+            connection.send(["dir", [++i, total, name, handle.kind, file.type, blob]]);
         } else {
             connection.send(["dir", [++i, total, name, handle.kind]]);
         }

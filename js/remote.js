@@ -18,6 +18,7 @@ const path = document.getElementById("path");
 const status = document.getElementById("status");
 const disconnect = document.getElementById("disconnect");
 const loading = document.getElementById("loading");
+const working = document.getElementById("working");
 /** @type {HTMLVideoElement} */
 const video = document.getElementById("video");
 
@@ -46,6 +47,7 @@ video.addEventListener("audioprocess", (e) => { console.log(e.type); });
 video.addEventListener("timeupdate", (e) => {
     console.log(video.buffered.start(0), video.buffered.end(0));
     if (video.currentTime + 1 >= video.buffered.end(0)) {
+        working.innerText = "Requesting stream data...";
         conn.send(["data"]);
     }
 });
@@ -61,6 +63,7 @@ video.addEventListener("progress", (e) => {
 let conn, previous = [];
 
 function buildUserList() {
+    working.innerText = "Building user list...";
     peer.listAllPeers((r) => {
         userBrowser.innerHTML = "";
         for (let i = 0; i < r.length; i++) {
@@ -75,6 +78,7 @@ function buildUserList() {
                 userBrowser.append(div);
             }
         }
+        working.innerText = "Ready!";
     });
 }
 
@@ -89,8 +93,9 @@ function buildDirectoryElement(name, kind, blob) {
 
     if (kind === "directory") {
         div.addEventListener("click", () => {
-            loading.style.opacity = "1";
+            if (working.innerText !== "Ready!") return;
             previous.push(name);
+            changeDirectory();
             conn.send(["dir", previous]);
         });
     } else {
@@ -105,6 +110,10 @@ function buildDirectoryElement(name, kind, blob) {
         }
 
         div.addEventListener("click", () => {
+            if (working.innerText !== "Ready!") return;
+            working.innerText = "Preparing your file...";
+            loading.style.opacity = "1";
+            loading.style.width = "100vw";
             conn.send(["file", [...previous, name]]);
         });
     }
@@ -112,8 +121,15 @@ function buildDirectoryElement(name, kind, blob) {
     fileBrowser.append(div);
 }
 
-function buildDirectoryView() {
+function changeDirectory() {
+    working.innerText = "Changing directory...";
+    console.log(fileBrowser);
     fileBrowser.innerHTML = "";
+    loading.style.opacity = "1";
+    buildDirectoryView();
+}
+
+function buildDirectoryView() {
     path.innerText = "/" + previous.join("/");
 
     // Back button
@@ -122,7 +138,9 @@ function buildDirectoryView() {
 
         div.innerText = "← Back";
         div.addEventListener("click", () => {
+            if (working.innerText !== "Ready!") return;
             previous.pop();
+            changeDirectory();
             conn.send(["dir", previous]);
         });
 
@@ -167,10 +185,6 @@ function connect(id) {
                 const [current, total, name, kind, mime, blob] = content;
                 loading.style.width = `${current / total * 100}vw`;
 
-                if (current === 1) {
-                    buildDirectoryView();
-                }
-
                 if (kind === "file" && mime) {
                     const type = mime.split("/")[0];
                     if (type === "video" || type === "image") {
@@ -182,41 +196,40 @@ function connect(id) {
 
                 if (current === total) {
                     loading.style.opacity = "0";
+                    working.innerText = "Ready!";
                 }
 
                 break;
             }
             case "file": {
                 const [size, name, mime] = content;
-                console.log(mime);
+                loading.style.opacity = "0";
+                console.log(mime, MediaSource.isTypeSupported(mime));
 
                 if (!MediaSource.isTypeSupported(mime)) {
-                    console.log("type not supported");
+                    console.log("Type not supported")
+                    working.innerText = "Video file can't be streamed.";
                     break;
                 }
 
                 mediaSource = new MediaSource();
                 mediaSource.onsourceopen = function (e) {
-                    console.log("media source opened");
+                    console.log("Media source opened");
 
-                    console.log("adding source");
+                    console.log("Adding source");
                     sourceBuffer = mediaSource.addSourceBuffer(mime); // Create new buffer
-                    sourceBuffer.onupdatestart = function (e) {
-                        console.log("update", e);
-                    }
                     sourceBuffer.mode = "sequence";
 
+                    working.innerText = "Requesting stream data...";
                     conn.send(["data"]); // Ask for data
-
-                    console.log(sourceBuffer);
                 }
 
                 mediaSource.onsourceclose = function (e) {
-                    console.log("media source closed");
+                    console.log("Media source closed");
                 }
 
                 mediaSource.onsourceended = function (e) {
-                    console.log("media source ended");
+                    console.log("Media source ended");
                 }
 
                 video.src = URL.createObjectURL(mediaSource);
@@ -225,9 +238,11 @@ function connect(id) {
             }
             case "data": {
                 const [value, done] = content;
-                console.log("received data", value, done);
+                console.log("Received data");
+                working.innerText = "Ready!";
                 if (!done) {
                     sourceBuffer.appendBuffer(value);
+                    video.play();
                 } else {
                     mediaSource.endOfStream();
                 }
