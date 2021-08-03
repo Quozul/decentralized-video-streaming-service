@@ -44,14 +44,20 @@ video.addEventListener("canplaythrough", (e) => { console.log(e.type); });
 video.addEventListener("canplay", (e) => { console.log(e.type); });
 video.addEventListener("audioprocess", (e) => { console.log(e.type); });
 
+// Amount of seconds to buffer
+let bufferSize = 10;
 video.addEventListener("timeupdate", (e) => {
-    if (video.buffered.length === 0 || video.currentTime + 1 >= video.buffered.end(0)) {
+    // Video is fully loaded
+    if (video.buffered.length > 0 && video.buffered.end(0) === video.duration) return;
+
+    if (video.buffered.length === 0 || video.currentTime + bufferSize >= video.buffered.end(0)) {
         working.innerText = "Requesting stream data...";
         conn.send(["data"]);
     }
 });
 
 video.addEventListener("waiting", (e) => {
+    working.innerText = "Requesting stream data...";
     conn.send(["data"]);
 });
 
@@ -249,7 +255,7 @@ function connect(id) {
 
                     sourceBuffer.appendBuffer(value);
                     video.play();
-                } else {
+                } else if (mediaSource.readyState === "open") {
                     mediaSource.endOfStream();
                 }
                 break;
