@@ -50,8 +50,54 @@ function readFile(file, chunksize = 1024 * 1024) {
     });
 }
 
+function readFFmpeg(filename = "fragmented.mp4", chunksize = 1024 * 1024) {
+    let offset = 0;
+    let ratio = 0;
+
+    function sendFragment() {
+        /** @type {Uint8Array} */
+        let fragmented;
+
+        try {
+            fragmented = ffmpeg.FS('readFile', 'fragmented.mp4');
+        } catch (e) {
+            console.error(e);
+            return null;
+        }
+
+        if (fragmented.length > offset) {
+            const newOffset = Math.min(fragmented.length, offset + chunksize);
+            const f = fragmented.slice(offset, newOffset);
+            offset = newOffset;
+            return f;
+        } else {
+            return null;
+        }
+    }
+
+    return {
+        setRatio: (v) => {
+            console.log("New ratio", v);
+            ratio = v;
+
+            /*if (v > 0) {
+                const f = sendFragment();
+                if (f !== null) {
+                    console.log("Sending data...", f);
+                    connection.send(["data", [f, false]]);
+                }
+            }*/
+        },
+        reader: function* () {
+            while (ratio < 1) {
+                yield sendFragment();
+            }
+        },
+    }
+}
+
 const { createFFmpeg } = FFmpeg;
-const ffmpeg = createFFmpeg({ log: true });
+const ffmpeg = createFFmpeg({ log: false });
 
 let instance;
 peer.on('connection', (conn) => {
@@ -116,11 +162,29 @@ peer.on('connection', (conn) => {
 
                             ffmpeg.FS('writeFile', file.name, new Uint8Array(buffer));
 
-                            // Running ffmpeg can be awaited, "-movflags +faststart" allow playing the file while converting
-                            ffmpeg.run('-i', file.name, '-preset', 'veryfast', '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart', 'fragmented.mp4');
+                            const reader = readFFmpeg();
+                            filereader = reader.reader();
 
-                            const fragmented = ffmpeg.FS('readFile', 'fragmented.mp4');
-                            console.log(fragmented);
+                            let sent = false;
+                            ffmpeg.setProgress(({ ratio }) => {
+                                /*
+                                 * ratio is a float number between 0 to 1.
+                                 */
+                                //console.log(ratio);
+                                // Expected output mime: video/mp4; codecs="avc1.640028,mp4a.40.2"; profiles="iso5,iso6,mp41"
+                                if (!sent && ratio > 0) {
+                                    console.log("Sending file information");
+                                    // When this is sent, the user can ask for data at any moment
+                                    conn.send(["file", [-1, "fragmented.mp4", 'video/mp4; codecs="avc1.640028,mp4a.40.2"; profiles="iso5,iso6,mp41"']]);
+                                    sent = true;
+                                }
+
+                                reader.setRatio(ratio);
+                            });
+
+                            // Running ffmpeg can be awaited, "-movflags +faststart" allow playing the file while converting
+                            //await ffmpeg.run('-i', file.name, '-preset', 'veryfast', '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart', 'fragmented.mp4');
+                            await ffmpeg.run('-i', file.name, '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart', 'fragmented.mp4');
                         }
                     }
 
@@ -153,6 +217,7 @@ peer.on('connection', (conn) => {
             }
             case "data": {
                 const entry = filereader.next();
+                console.log("Requested data...");
                 conn.send(["data", [entry.value, entry.done]]);
             }
         }

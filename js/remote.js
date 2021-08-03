@@ -45,8 +45,7 @@ video.addEventListener("canplay", (e) => { console.log(e.type); });
 video.addEventListener("audioprocess", (e) => { console.log(e.type); });
 
 video.addEventListener("timeupdate", (e) => {
-    console.log(video.buffered.start(0), video.buffered.end(0));
-    if (video.currentTime + 1 >= video.buffered.end(0)) {
+    if (video.buffered.length === 0 || video.currentTime + 1 >= video.buffered.end(0)) {
         working.innerText = "Requesting stream data...";
         conn.send(["data"]);
     }
@@ -206,7 +205,7 @@ function connect(id) {
             case "file": {
                 const [size, name, mime] = content;
                 loading.style.opacity = "0";
-                console.log(mime, MediaSource.isTypeSupported(mime));
+                console.log("Received file information", mime, MediaSource.isTypeSupported(mime));
 
                 if (!MediaSource.isTypeSupported(mime)) {
                     console.log("Type not supported")
@@ -240,9 +239,17 @@ function connect(id) {
             }
             case "data": {
                 const [value, done] = content;
-                console.log("Received data");
+                console.log("Received data", value);
                 working.innerText = "Ready!";
+
                 if (!done) {
+                    if (value === null) {
+                        setTimeout(() => {
+                            conn.send(["data"]); // Ask for data
+                        }, 1000);
+                        break;
+                    }
+
                     sourceBuffer.appendBuffer(value);
                     video.play();
                 } else {
