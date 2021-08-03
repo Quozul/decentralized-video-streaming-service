@@ -50,15 +50,15 @@ video.addEventListener("timeupdate", (e) => {
         conn.send(["data"]);
     }
 });
-/*
+
 video.addEventListener("waiting", (e) => {
     conn.send(["data"]);
 });
 
-video.addEventListener("progress", (e) => {
+/*video.addEventListener("progress", (e) => {
     video.play();
-});
-*/
+});*/
+
 let conn, previous = [];
 
 function buildUserList() {
@@ -244,9 +244,6 @@ function connect(id) {
 
                 if (!done) {
                     if (value === null) {
-                        setTimeout(() => {
-                            conn.send(["data"]); // Ask for data
-                        }, 1000);
                         break;
                     }
 
@@ -256,6 +253,13 @@ function connect(id) {
                     mediaSource.endOfStream();
                 }
                 break;
+            }
+            case "conversion": {
+                loading.style.opacity = "1";
+                loading.style.width = `${content * 100}vw`;
+                if (content === 1) {
+                    loading.style.opacity = "0";
+                }
             }
         }
     });

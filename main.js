@@ -37,7 +37,7 @@ peerServer.on('disconnect', (client) => {
 app.use('/peerjs', peerServer);
 
 app.get('/', (req, res) => {
-    res.send("Hello World!");
+    res.sendFile(__dirname + '/views/index.html');
 });
 
 app.get('/tv_experimental', (req, res) => {

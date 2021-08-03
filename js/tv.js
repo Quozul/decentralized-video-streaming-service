@@ -53,6 +53,7 @@ function readFile(file, chunksize = 1024 * 1024) {
 function readFFmpeg(filename = "fragmented.mp4", chunksize = 1024 * 1024) {
     let offset = 0;
     let ratio = 0;
+    let asked = false;
 
     function sendFragment() {
         /** @type {Uint8Array} */
@@ -62,6 +63,7 @@ function readFFmpeg(filename = "fragmented.mp4", chunksize = 1024 * 1024) {
             fragmented = ffmpeg.FS('readFile', 'fragmented.mp4');
         } catch (e) {
             console.error(e);
+            asked = true;
             return null;
         }
 
@@ -69,28 +71,33 @@ function readFFmpeg(filename = "fragmented.mp4", chunksize = 1024 * 1024) {
             const newOffset = Math.min(fragmented.length, offset + chunksize);
             const f = fragmented.slice(offset, newOffset);
             offset = newOffset;
+            asked = false;
             return f;
         } else {
+            asked = true;
             return null;
         }
     }
 
     return {
         setRatio: (v) => {
-            console.log("New ratio", v);
             ratio = v;
 
-            /*if (v > 0) {
+            if (asked && v > 0) {
                 const f = sendFragment();
                 if (f !== null) {
                     console.log("Sending data...", f);
                     connection.send(["data", [f, false]]);
                 }
-            }*/
+            }
         },
         reader: function* () {
             while (ratio < 1) {
-                yield sendFragment();
+                const f = sendFragment();
+                if (f === null) {
+                    console.log("Waiting for data...", f);
+                }
+                yield f;
             }
         },
     }
@@ -135,9 +142,7 @@ peer.on('connection', (conn) => {
 
                 if (file.type === "video/mp4") {
                     const mp4boxfile = MP4Box.createFile();
-                    mp4boxfile.onError = function(e) {
-                        console.error(e);
-                    };
+                    mp4boxfile.onError = function(e) { console.error(e); };
 
                     let buffer;
 
@@ -165,7 +170,7 @@ peer.on('connection', (conn) => {
                             const reader = readFFmpeg();
                             filereader = reader.reader();
 
-                            let sent = false;
+                            let sent = false, offset = 0;
                             ffmpeg.setProgress(({ ratio }) => {
                                 /*
                                  * ratio is a float number between 0 to 1.
@@ -175,16 +180,22 @@ peer.on('connection', (conn) => {
                                 if (!sent && ratio > 0) {
                                     console.log("Sending file information");
                                     // When this is sent, the user can ask for data at any moment
-                                    conn.send(["file", [-1, "fragmented.mp4", 'video/mp4; codecs="avc1.640028,mp4a.40.2"; profiles="iso5,iso6,mp41"']]);
+                                    conn.send(["file", [-1, "fragmented.mp4", 'video/mp4; codecs="avc1.640028"; profiles="iso5,iso6,mp41"']]);
                                     sent = true;
                                 }
+
+                                connection.send(["conversion", ratio]);
 
                                 reader.setRatio(ratio);
                             });
 
                             // Running ffmpeg can be awaited, "-movflags +faststart" allow playing the file while converting
                             //await ffmpeg.run('-i', file.name, '-preset', 'veryfast', '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart', 'fragmented.mp4');
-                            await ffmpeg.run('-i', file.name, '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart', 'fragmented.mp4');
+                            await ffmpeg.run('-i', file.name,
+                                '-vcodec', 'libx264',
+                                '-acodec', 'aac',
+                                '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart',
+                                'fragmented.mp4');
                         }
                     }
 
@@ -217,8 +228,10 @@ peer.on('connection', (conn) => {
             }
             case "data": {
                 const entry = filereader.next();
-                console.log("Requested data...");
-                conn.send(["data", [entry.value, entry.done]]);
+                if (entry.value !== null) {
+                    console.log("Requested data...");
+                    conn.send(["data", [entry.value, entry.done]]);
+                }
             }
         }
     });

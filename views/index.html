@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Decentralized Video Streaming Service</title>
+</head>
+<body>
+<h1>DVSS</h1>
+<small>(Pronounced Duss)</small>
+
+<p>
+    DVSS is a free Decentralized Video Streaming Service.
+</p>
+
+<hr>
+
+<div style="text-align: center;">
+    <h1>DISCLAIMER</h1>
+    <h2>You must never share sensitive files or folders on this website, I am not responsible for any loss or data theft!</h2>
+</div>
+
+<hr>
+
+<h2>How to use?</h2>
+<h3>Share my files</h3>
+<h4>What files can be shared?</h4>
+<p>
+    To share a folder, you must be using Chrome or one of its derivatives (Chromium-based browsers).
+    You can currently only share MP4 video files.<br>
+    MP4 files must be fragmented in order to be read by the browser as a video stream.<br>
+    You can either convert the file by yourself using ffmpeg using this command:
+    <pre>ffmpeg -i non_fragmented.mp4 -movflags frag_keyframe+empty_moov+default_base_moof fragmented.mp4</pre>
+    Or let the browser convert the file. The video stream is sent while the video is being converted, which breaks the user experience.<br>
+    Note that the later is very slow and heavy on the CPU.<br>
+    In the future you'll be able to share images, musics, text files (as live edit, similar to Google Docs') and other files (as download).
+</p>
+
+<h2>Developer journal</h2>
+<p>
+    Curious about how to remake something similar on your own? Here are some resources I used to make this.
+</p>
+<ul>
+    <li>WebRTC with <a href="https://peerjs.com/">PeerJS</a></li>
+    <li>HTTP server with <a href="https://expressjs.com/">Express</a></li>
+    <li>WebSockets <a href="https://socket.io/">Socket.io</a></li>
+    <li>Get MP4 file information with <a href="https://github.com/gpac/mp4box.js">mp4box.js</a></li>
+    <li>Convert MP4 files within the browser with <a href="https://github.com/ffmpegwasm/ffmpeg.wasm">ffmpeg.wasm</a></li>
+    <li>MDN <a href="https://developer.mozilla.org/en-US/docs/Web/API/Media_Source_Extensions_API/Transcoding_assets_for_MSE">Transcoding assets for Media Source Extensions</a></li>
+    <li>MDN <a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaStream">MediaStream</a> used to read video stream</li>
+    <li>MDN <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API">File System Access API</a> used to access the files on your computer</li>
+</ul>
+
+<h2>TODO</h2>
+<ul>
+    <li>Remove PeerJS</li>
+    <li>Remove Socket.io</li>
+    <li>Stream audio files</li>
+    <li>Share images</li>
+    <li>Live edit text files</li>
+    <li>Download other files (zip, jar, executables and whatnot)</li>
+</ul>
+</body>
+</html>
