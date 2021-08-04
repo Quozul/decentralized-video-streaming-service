@@ -77,7 +77,7 @@ function readFFmpeg(ffmpeg, filename = "fragmented.mp4", chunksize = 1024 * 1024
             try {
                 fragmented = ffmpeg.FS("readFile", "fragmented.mp4");
             } catch (e) {
-                console.error(e);
+                console.warn(e);
             }
 
             if (ratio === 1) {
@@ -109,8 +109,6 @@ function readFFmpeg(ffmpeg, filename = "fragmented.mp4", chunksize = 1024 * 1024
         },
     }
 }
-
-const { createFFmpeg } = FFmpeg;
 
 let subtitlesInstance;
 peer.on('connection', (conn) => {
@@ -162,7 +160,7 @@ peer.on('connection', (conn) => {
                             // https://developer.mozilla.org/en-US/docs/Web/API/Media_Source_Extensions_API/Transcoding_assets_for_MSE
                             console.log("Converting file...");
 
-                            const ffmpeg = createFFmpeg({ log: false });
+                            const ffmpeg = FFmpeg.createFFmpeg({ log: false });
 
                             if (!ffmpeg.isLoaded()) {
                                 console.log("Initializing FFmpeg...");
@@ -190,7 +188,6 @@ peer.on('connection', (conn) => {
                             });
 
                             // Running ffmpeg can be awaited, "-movflags +faststart" allow playing the file while converting
-                            //await ffmpeg.run('-i', file.name, '-preset', 'veryfast', '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart', 'fragmented.mp4');
                             await ffmpeg.run('-i', file.name,
                                 '-vcodec', 'libx264',
                                 '-acodec', 'aac',
@@ -288,32 +285,37 @@ async function findHandler(root, path = []) {
 
 /**
  * @param {File} file
- * @param {HTMLCanvasElement} canvas
  * @returns {Promise<Blob>}
  */
-function getThumbnail(file, canvas) {
+function getThumbnail(file) {
     return new Promise(resolve => {
         const video = document.createElement("video");
         video.style.display = "none";
         document.body.append(video);
         video.src = URL.createObjectURL(file);
 
+        /** @type {OffscreenCanvas} */
+        let canvas;
+
         video.addEventListener("loadedmetadata", () => {
             const time = Math.floor(Math.random() * video.duration);
             video.currentTime = time;
 
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            canvas = new OffscreenCanvas(video.videoWidth, video.videoHeight);
         });
 
-        video.addEventListener("timeupdate", () => {
+        video.addEventListener("timeupdate", async () => {
             const context = canvas.getContext('2d');
             context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
-            canvas.toBlob(blob => {
-                resolve(blob);
-                video.remove();
+            const blob = await canvas.convertToBlob({
+                type: "image/jpeg",
+                quality: 0.95
             });
+
+            resolve(blob);
+            video.remove();
+            context.clearRect(0, 0, canvas.width, canvas.height);
         });
     });
 }
