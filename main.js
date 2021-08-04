@@ -40,14 +40,14 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/views/index.html');
 });
 
-app.get('/tv_experimental', (req, res) => {
+app.get('/tv', (req, res) => {
     res.set("Cross-Origin-Embedder-Policy", "require-corp");
     res.set("Cross-Origin-Opener-Policy", "same-origin");
-    res.sendFile(__dirname + '/views/tv_experimental.html');
+    res.sendFile(__dirname + '/views/tv.html');
 });
 
-app.get('/remote_experimental', (req, res) => {
-    res.sendFile(__dirname + '/views/remote_experimental.html');
+app.get('/remote', (req, res) => {
+    res.sendFile(__dirname + '/views/remote.html');
 });
 
 app.get('/js/*', (req, res) => {

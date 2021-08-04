@@ -44,6 +44,9 @@ video.addEventListener("canplaythrough", (e) => { console.log(e.type); });
 video.addEventListener("canplay", (e) => { console.log(e.type); });
 video.addEventListener("audioprocess", (e) => { console.log(e.type); });*/
 
+// Play the video when the first few frames are loaded
+video.addEventListener("canplay", (e) => { video.play(); });
+
 // Amount of seconds to buffer
 let bufferSize = 10;
 // Prevent data from being fetched again
@@ -66,10 +69,6 @@ video.addEventListener("waiting", (e) => {
     working.innerText = "Requesting stream data...";
     conn.send(["data"]);
 });
-
-/*video.addEventListener("progress", (e) => {
-    video.play();
-});*/
 
 let conn, previous = [];
 
