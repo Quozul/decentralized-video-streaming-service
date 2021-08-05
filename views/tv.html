@@ -19,39 +19,17 @@
             min-height: 100vh;
             color: white;
         }
-
-        video, img {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            object-fit: contain;
-        }
-
-        #controls {
-            z-index: 10;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
     </style>
 </head>
 
 <body>
-
-<video id="video" controls style="display: none;"></video>
-<img id="image" style="display: none;" alt="Image">
-<canvas id="thumbnail" style="display: none;"></canvas>
 
 <div id="controls">
     <button id="allowAccess" onclick="getFile()">Allow access</button>
     <div id="peerId">We're opening the gate for you, it shouldn't take too long.</div>
 </div>
 
-<script src="/js/lib/ffmpeg.min.js"></script>
 <script src="/js/lib/peerjs.min.js"></script>
-<script src="/js/lib/subtitles-octopus.js"></script>
 <script src="/js/tv.js"></script>
 </body>
 
