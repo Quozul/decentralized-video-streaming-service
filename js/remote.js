@@ -1,37 +1,37 @@
-const peer = new Peer({
-    host: window.location.hostname,
-    port: window.location.port,
-    path: '/peer',
-    secure: true,
-});
-
-const files = $("#files");
-const fileBrowser = $("#fileBrowser");
-const userBrowser = $("#userBrowser");
-const users = $("#users");
-const pathSpan = $("#path");
-const status = $("#status");
-const disconnect = $("#disconnect");
-const loading = $("#loading");
-const toggle = $("#toggle");
-/** @type {HTMLVideoElement} */
-const video = $("#video");
-const videoContainer = $("#videoContainer");
-
 // CONFIGURATION VARIABLES
 // Amount of seconds to buffer
 const BUFFER_SIZE = 30;
 
-// Play the video when the first few frames are loaded
-video.oncanplay = video.play
+(() => {
+    const peer = new Peer({
+        host: window.location.hostname,
+        port: window.location.port,
+        path: '/peer',
+        secure: true,
+    });
 
-peer.on("open", buildUserList);
+    const refresh = $("#refresh");
+
+    refresh.onclick = () => buildUserList(peer);
+
+    peer.on("open", () => buildUserList(peer));
+})();
 
 /**
  * @param {string} id
  */
-function connect(id) {
+function connect(peer, id) {
     const conn = peer.connect(id);
+
+    const files = $("#files");
+    const users = $("#users");
+    const status = $("#status");
+    const disconnect = $("#disconnect");
+    const loading = $("#loading");
+    const toggle = $("#toggle");
+    /** @type {HTMLVideoElement} */
+    const video = $("#video");
+    const videoContainer = $("#videoContainer");
 
     const back = document.getElementById("back");
     /**
@@ -87,6 +87,9 @@ function connect(id) {
             }
         }
     }
+
+    // Play the video when the first few frames are loaded
+    video.oncanplay = video.play
 
     toggle.onclick = () => toggleVideo(mediaSource);
 

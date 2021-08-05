@@ -23,6 +23,10 @@ function addBuffer(sourceBuffer, bufferRead, buffer) {
  * @returns {boolean}
  */
 function requestData(conn, waiting, bufferRead, sourceBuffer) {
+    const status = $("#status");
+    /** @type {HTMLVideoElement} */
+    const video = $("#video");
+
     if (!sourceBuffer.updating && (sourceBuffer.buffered.length === 0 || video.currentTime + BUFFER_SIZE >= sourceBuffer.buffered.end(0))) {
         const track = sourceBuffer.track;
         if (waiting[track]) return false;
@@ -65,7 +69,10 @@ function initMediaStream(video) {
     });
 }
 
-function buildUserList() {
+function buildUserList(peer) {
+    const userBrowser = $("#userBrowser");
+    const status = $("#status");
+
     status.innerText = "Building user list...";
     peer.listAllPeers((r) => {
         userBrowser.innerHTML = "";
@@ -75,7 +82,7 @@ function buildUserList() {
                 div.innerText = r[i];
 
                 div.addEventListener("click", () => {
-                    connect(r[i]);
+                    connect(peer, r[i]);
                 });
 
                 userBrowser.append(div);
@@ -93,6 +100,10 @@ function buildUserList() {
  * @param {Blob} blob
  */
 function buildDirectoryElement(conn, path, name, kind, blob) {
+    const fileBrowser = $("#fileBrowser");
+    const status = $("#status");
+    const loading = $("#loading");
+
     const div = document.createElement("div");
     div.innerText = name;
 
@@ -141,6 +152,11 @@ function buildDirectoryElement(conn, path, name, kind, blob) {
  * @param {string[]} path
  */
 function changeDirectory(path) {
+    const fileBrowser = $("#fileBrowser");
+    const pathSpan = $("#path");
+    const status = $("#status");
+    const loading = $("#loading");
+
     status.innerText = "Changing directory...";
     loading.style.opacity = "1";
     fileBrowser.innerHTML = "";
@@ -151,6 +167,12 @@ function changeDirectory(path) {
  * @param {MediaSource} mediaSource
  */
 function toggleVideo(mediaSource) {
+    const files = $("#files");
+    const toggle = $("#toggle");
+    /** @type {HTMLVideoElement} */
+    const video = $("#video");
+    const videoContainer = $("#videoContainer");
+
     if (videoContainer.style.display === "block") {
         video.pause();
         videoContainer.style.display = "none";
