@@ -23,6 +23,7 @@ main {
     flex: 1;
     overflow: auto;
     padding: 1em;
+    overflow-x: hidden;
 }
 
 header, footer {

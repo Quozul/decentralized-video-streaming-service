@@ -43,7 +43,9 @@
             <div class="browser" id="fileBrowser"></div>
         </div>
 
-        <video id="video" controls style="display: none;"></video>
+        <div id="videoContainer" style="display: none;">
+            <video id="video" controls></video>
+        </div>
     </main>
 
     <footer>
@@ -53,6 +55,8 @@
 
 <script src="/js/lib/subtitles-octopus.js"></script>
 <script src="/js/lib/peerjs.min.js"></script>
+<script src="/js/global.js"></script>
+<script src="/js/remote_utils.js"></script>
 <script src="/js/remote.js"></script>
 <script src="/js/fileIcons.js"></script>
 </body>

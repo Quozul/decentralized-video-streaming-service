@@ -1,14 +1,15 @@
+/** @type {FileSystemDirectoryHandle} */
 let directoryHandle;
 /** @type {HTMLVideoElement} */
-const video = document.getElementById("video");
+const video = $("#video");
 /** @type {HTMLImageElement} */
-const image = document.getElementById("image");
+const image = $("#image");
 /** @type {HTMLDivElement} */
-const controls = document.getElementById("controls");
+const controls = $("#controls");
 /** @type {HTMLCanvasElement} */
-const thumbnail = document.getElementById("thumbnail");
+const thumbnail = $("#thumbnail");
 /** @type {HTMLUListElement} */
-const users = document.getElementById("connectedUsers");
+const users = $("#connectedUsers");
 
 const peer = new Peer({
     host: window.location.hostname,
@@ -21,7 +22,6 @@ peer.on("open", (id) => {
     document.getElementById("peerId").innerText = "You're successfully connected, your id is: " + id;
 });
 
-let subtitlesInstance;
 peer.on('connection', (conn) => {
     console.log("User connected " + conn.peer);
 
@@ -98,185 +98,3 @@ peer.on('connection', (conn) => {
         li.remove();
     });
 });
-
-/**
- * @param {FileSystemDirectoryHandle} root
- * @param {string[]} path
- * @returns {Promise<FileSystemFileHandle|FileSystemDirectoryHandle>}
- */
-async function findHandler(root, path = []) {
-    if (path.length === 0) return root;
-
-    const entries = root.entries();
-    let entry;
-    while ((entry = await entries.next()).done === false) {
-        const [name, handle] = entry.value;
-
-        if (name === path[0]) {
-            if (path.length === 1) {
-                return handle;
-            } else {
-                return await findHandler(handle, path.slice(1));
-            }
-        }
-    }
-
-    return null;
-}
-
-/**
- * @param {File} file
- * @returns {AsyncGenerator<Promise<{id: number, codec: string, mime: string}>, Promise<Object<ArrayBuffer[]>>, *>}
- */
-async function * getSegments(file) {
-    const buffer = await file.arrayBuffer();
-    buffer.fileStart = 0;
-    let initSegs;
-
-    const mp4boxfile = MP4Box.createFile();
-
-    mp4boxfile.onError = function (e) { console.error(e); }
-
-    /** @type {Object<ArrayBuffer[]>} */
-    const buffers = {};
-    let trackCount = 0;
-
-    yield new Promise(resolve => {
-        mp4boxfile.onReady = async function (info) {
-            console.log("Info", info);
-
-            const options = {nbSamples: 1000, rapAlignement: true};
-
-            const tracks = [];
-            trackCount = info.tracks.length;
-            for (const {id, codec} of info.tracks) {
-                console.log("Track", id);
-
-                // Building per track mime, this saves us from doing a per track analysis
-                const mime = `${info.mime.split(";")[0]}; codecs="${codec}"`;
-                tracks.push({id: id, codec: codec, mime: mime});
-
-                buffers[id] = [];
-                mp4boxfile.setSegmentOptions(id, undefined, options);
-            }
-
-            // Return only useful information
-            resolve({mime: info.mime, duration: info.duration, timescale: info.timescale, bands: info.bands, tracks: tracks});
-
-            initSegs = mp4boxfile.initializeSegmentation();
-
-            console.log("Received init segments");
-
-            for (const {id, buffer} of initSegs) {
-                console.log("Append init segment", buffer);
-                buffers[id].push(buffer);
-            }
-        }
-
-        mp4boxfile.appendBuffer(buffer);
-        mp4boxfile.flush();
-    });
-
-    return new Promise(resolve => {
-        let done = 0;
-        mp4boxfile.onSegment = function (id, user, buffer, sampleNumber, last) {
-            buffers[id].push(buffer);
-            mp4boxfile.releaseUsedSamples(id, sampleNumber);
-            if (last && ++done === trackCount) {
-                resolve(buffers);
-            }
-        }
-
-        mp4boxfile.start();
-    });
-}
-
-/**
- * @param {File} file
- * @returns {Promise<Blob>}
- */
-function getThumbnail(file) {
-    return new Promise(resolve => {
-        const video = document.createElement("video");
-        video.style.display = "none";
-        document.body.append(video);
-        video.src = URL.createObjectURL(file);
-
-        /** @type {OffscreenCanvas} */
-        let canvas;
-
-        video.addEventListener("loadedmetadata", () => {
-            const time = Math.floor(Math.random() * video.duration);
-            video.currentTime = time;
-
-            canvas = new OffscreenCanvas(video.videoWidth, video.videoHeight);
-        });
-
-        video.addEventListener("timeupdate", async () => {
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-
-            const blob = await canvas.convertToBlob({
-                type: "image/jpeg",
-                quality: 0.95
-            });
-
-            resolve(blob);
-            URL.revokeObjectURL(video.src);
-            video.remove();
-            context.clearRect(0, 0, canvas.width, canvas.height);
-        });
-    });
-}
-
-/**
- * @param {FileSystemDirectoryHandle} directoryHandle
- * @returns {Promise<any[]>}
- */
-async function sendDirectory(conn, directoryHandle) {
-    const response = [];
-
-    let total = 0, i = 0;
-    const iter = directoryHandle.entries();
-    while (!(await iter.next()).done) total++;
-
-    const entries = directoryHandle.entries();
-    let entry;
-    while (!(entry = await entries.next()).done) {
-        const [name, handle] = entry.value;
-
-        if (handle.kind === "file") {
-            /** @type {File} */
-            const file = await handle.getFile();
-            const type = file.type.split("/")[0];
-            /** @type {Blob} */
-            let blob;
-
-            /*if (type === "video") {
-                blob = await getThumbnail(file);
-            }*/
-
-            conn.send(["dir", [++i, total, name, handle.kind, file.type, blob]]);
-        } else {
-            conn.send(["dir", [++i, total, name, handle.kind]]);
-        }
-    }
-
-    return response;
-}
-
-/**
- * @returns {Promise<void>}
- */
-async function getFile() {
-    // Open directory picker
-    directoryHandle = await window.showDirectoryPicker();
-
-    document.getElementById("allowAccess").innerText = "Folder opened: " + directoryHandle.name;
-
-    for (const key in peer.connections) {
-        if (peer.connections.hasOwnProperty(key)) {
-            sendDirectory(peer.connections[key], directoryHandle);
-        }
-    }
-}
