@@ -165,15 +165,17 @@ async function sendDirectory(conn, directoryHandle) {
 }
 
 /**
- * @returns {Promise<void>}
+ * @returns {Promise<FileSystemDirectoryHandle>}
  */
-async function getFile() {
+async function getFile(peer) {
     // Open directory picker
-    directoryHandle = await window.showDirectoryPicker();
+    const directoryHandle = await window.showDirectoryPicker();
 
     document.getElementById("allowAccess").innerText = "Folder opened: " + directoryHandle.name;
 
     for (const key in peer.connections) {
         sendDirectory(peer.connections[key][0], directoryHandle);
     }
+
+    return directoryHandle;
 }
