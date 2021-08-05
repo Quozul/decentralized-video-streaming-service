@@ -8,27 +8,33 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <link href="/css/global.css" rel="stylesheet">
+    <link href="/css/tv.css" rel="stylesheet">
     <script src="/js/lib/mp4box.all.min.js"></script>
-
-    <style>
-        body {
-            font-family: 'Roboto', 'Calibri', sans-serif;
-            box-sizing: border-box;
-            margin: 0;
-            background-color: #334;
-            min-height: 100vh;
-            color: white;
-        }
-    </style>
 </head>
 
 <body>
 
-<div id="controls">
-    <button id="allowAccess" onclick="getFile()">Allow access</button>
-    <div id="peerId">We're opening the gate for you, it shouldn't take too long.</div>
-</div>
+<div class="wrapper">
+    <header>
+        <div>
+            <div id="peerId">We're opening the gate for you, it shouldn't take too long.</div>
+        </div>
+    </header>
 
+    <main>
+        <div class="flex-row">
+            <p>Please select a folder to share.</p>
+            <button id="allowAccess" onclick="getFile()">Allow access</button>
+        </div>
+        <h2>Connected users</h2>
+        <ul id="connectedUsers"></ul>
+    </main>
+
+    <footer>
+        <div>© Copyright Quozul.dev 2021</div>
+    </footer>
+</div>
 <script src="/js/lib/peerjs.min.js"></script>
 <script src="/js/tv.js"></script>
 </body>

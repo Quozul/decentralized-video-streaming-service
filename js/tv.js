@@ -1,4 +1,4 @@
-let directoryHandle, connection;
+let directoryHandle;
 /** @type {HTMLVideoElement} */
 const video = document.getElementById("video");
 /** @type {HTMLImageElement} */
@@ -7,6 +7,8 @@ const image = document.getElementById("image");
 const controls = document.getElementById("controls");
 /** @type {HTMLCanvasElement} */
 const thumbnail = document.getElementById("thumbnail");
+/** @type {HTMLUListElement} */
+const users = document.getElementById("connectedUsers");
 
 const peer = new Peer({
     host: window.location.hostname,
@@ -22,8 +24,10 @@ peer.on("open", (id) => {
 let subtitlesInstance;
 peer.on('connection', (conn) => {
     console.log("User connected " + conn.peer);
-    if (connection) connection.close(); // Disconnect previously connected user
-    connection = conn;
+
+    const li = document.createElement("li");
+    li.innerText = conn.peer;
+    users.append(li);
 
     let buffers;
 
@@ -38,7 +42,7 @@ peer.on('connection', (conn) => {
                 console.log("User viewing folder /" + content.join("/"));
                 /** @type {FileSystemFileHandle|FileSystemDirectoryHandle} */
                 const handler = await findHandler(directoryHandle, content);
-                sendDirectory(handler);
+                sendDirectory(conn, handler);
                 break;
             }
             case "file": {
@@ -84,10 +88,14 @@ peer.on('connection', (conn) => {
     });
 
     conn.on("open", async () => {
-        subtitlesInstance?.dispose();
         if (directoryHandle) {
-            sendDirectory(directoryHandle);
+            sendDirectory(conn, directoryHandle);
         }
+    });
+
+    conn.on("close", () => {
+        console.log("User disconnected", conn.peer);
+        li.remove();
     });
 });
 
@@ -225,7 +233,7 @@ function getThumbnail(file) {
  * @param {FileSystemDirectoryHandle} directoryHandle
  * @returns {Promise<any[]>}
  */
-async function sendDirectory(directoryHandle) {
+async function sendDirectory(conn, directoryHandle) {
     const response = [];
 
     let total = 0, i = 0;
@@ -248,9 +256,9 @@ async function sendDirectory(directoryHandle) {
                 blob = await getThumbnail(file);
             }*/
 
-            connection.send(["dir", [++i, total, name, handle.kind, file.type, blob]]);
+            conn.send(["dir", [++i, total, name, handle.kind, file.type, blob]]);
         } else {
-            connection.send(["dir", [++i, total, name, handle.kind]]);
+            conn.send(["dir", [++i, total, name, handle.kind]]);
         }
     }
 
@@ -266,7 +274,9 @@ async function getFile() {
 
     document.getElementById("allowAccess").innerText = "Folder opened: " + directoryHandle.name;
 
-    if (connection) {
-        sendDirectory(directoryHandle);
+    for (const key in peer.connections) {
+        if (peer.connections.hasOwnProperty(key)) {
+            sendDirectory(peer.connections[key], directoryHandle);
+        }
     }
 }

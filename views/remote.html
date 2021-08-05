@@ -8,129 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
-
-    <style>
-        * {
-            user-select: none;
-        }
-
-        @keyframes rainbow {
-            0% {
-                background-position: 0 82%
-            }
-            50% {
-                background-position: 100% 19%
-            }
-            100% {
-                background-position: 0 82%
-            }
-        }
-
-        body {
-            font-family: 'Roboto', 'Calibri', sans-serif;
-            box-sizing: border-box;
-            margin: 0;
-            background-color: #334;
-            height: 100vh;
-            color: white;
-        }
-
-        #loading {
-            position: absolute;
-            z-index: 1000;
-            width: 100vw;
-            opacity: 0;
-            transition: width .2s, opacity .2s;
-            height: .5em;
-            box-shadow: rgba(0, 0, 0, .5) 0 0 10px;
-            animation: rainbow 18s ease infinite;
-            background: linear-gradient(90deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
-            background-size: 1800% 1800%;
-        }
-
-        .browser {
-            display: grid;
-            grid-template-columns: 1fr;
-            grid-auto-rows: 1fr;
-            gap: 1em;
-        }
-
-        .browser div {
-            background-color: #222;
-            color: white;
-            display: flex;
-            justify-content: start;
-            align-items: center;
-            text-align: center;
-            cursor: pointer;
-            user-select: none;
-            padding: 1em;
-        }
-
-        .browser div > img {
-            margin-right: 1em;
-        }
-
-        header, footer {
-            background: #333;
-        }
-
-        header > div, footer > div {
-            padding: 1em;
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .button, button {
-            display: block;
-            background-color: #333;
-            border-radius: .1em;
-            border: solid #444;
-            color: white;
-            padding: .5em;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        /* https://stackoverflow.com/a/43710216 */
-        .wrapper {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-
-        main {
-            position: relative;
-            flex: 1;
-            overflow: auto;
-        }
-
-        video {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-        }
-
-        #path {
-            white-space: nowrap;
-            overflow: hidden;
-            display: flex;
-            justify-content: flex-end;
-            text-overflow: ellipsis;
-        }
-
-        header {
-            top: 0;
-        }
-
-        footer {
-            bottom: 0;
-        }
-    </style>
+    <link href="/css/global.css" rel="stylesheet">
+    <link href="/css/remote.css" rel="stylesheet">
 </head>
 
 <body>
@@ -146,20 +25,20 @@
         </div>
     </header>
 
-    <main style="padding: 1em;">
+    <main>
         <div id="users">
-            <div style="display: flex; flex-direction: row; align-items: center">
+            <div class="flex-row">
                 <h1>Users</h1>
-                <button onclick="buildUserList()" style="margin-left: 1em;">Refresh</button>
+                <button onclick="buildUserList()" class="ml1">Refresh</button>
             </div>
             <p>Click on a user bellow to view their files.</p>
             <div class="browser" id="userBrowser"></div>
         </div>
 
         <div id="files" style="display: none">
-            <div style="display: flex; flex-direction: row; align-items: center; margin-bottom: .5em;">
-                <button style="margin-right: 1em;" id="back">← Back</button>
-                <pre id="path" style="margin-left: 1em;">/</pre>
+            <div class="flex-row mb1">
+                <button class="mr1" id="back">← Back</button>
+                <pre id="path" class="ml1">/</pre>
             </div>
             <div class="browser" id="fileBrowser"></div>
         </div>

@@ -48,3 +48,7 @@ app.get('/view', (req, res) => {
 app.get('/js/*', (req, res) => {
     res.sendFile(__dirname + "/js/" + req.params[0]);
 });
+
+app.get('/css/*', (req, res) => {
+    res.sendFile(__dirname + "/css/" + req.params[0]);
+});
