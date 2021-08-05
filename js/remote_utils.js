@@ -6,7 +6,7 @@
 function addBuffer(sourceBuffer, bufferRead, buffer) {
     const track = sourceBuffer.track;
 
-    if (!sourceBuffer.updating && (sourceBuffer.buffered.length === 0 || video.currentTime + BUFFER_SIZE >= sourceBuffer.buffered.end(0))) {
+    if (!sourceBuffer.updating && (sourceBuffer.buffered.length === 0 || $("#video").currentTime + BUFFER_SIZE >= sourceBuffer.buffered.end(0))) {
         if (buffer !== null) {
             sourceBuffer.appendBuffer(buffer);
             bufferRead[track]++;

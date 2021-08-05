@@ -105,8 +105,7 @@ function getThumbnail(file) {
         let canvas;
 
         video.addEventListener("loadedmetadata", () => {
-            const time = Math.floor(Math.random() * video.duration);
-            video.currentTime = time;
+            video.currentTime = Math.floor(Math.random() * video.duration);
 
             canvas = new OffscreenCanvas(video.videoWidth, video.videoHeight);
         });
@@ -147,11 +146,10 @@ async function sendDirectory(conn, directoryHandle) {
         if (handle.kind === "file") {
             /** @type {File} */
             const file = await handle.getFile();
-            const type = file.type.split("/")[0];
             /** @type {Blob} */
-            let blob;
+            let blob = null;
 
-            /*if (type === "video") {
+            /*if (file.type.split("/")[0] === "video") {
                 blob = await getThumbnail(file);
             }*/
 
