@@ -8,7 +8,7 @@ body {
     margin: 0;
     background-color: #334;
     height: 100vh;
-    color: white;
+    color: #eee;
 }
 
 /* https://stackoverflow.com/a/43710216 */
@@ -24,6 +24,10 @@ main {
     overflow: auto;
     padding: 1em;
     overflow-x: hidden;
+}
+
+a {
+    color: lightblue;
 }
 
 header, footer {

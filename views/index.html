@@ -1,64 +1,108 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/html">
 <head>
     <title>Decentralized Video Streaming Service</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <link href="/css/global.css" rel="stylesheet">
 </head>
 <body>
-<h1>DVSS</h1>
+<div class="wrapper">
+    <header>
+        <div class="flex-row" style="justify-content: start">
+            <h1>DVSS</h1>
+            <a class="button" href="/host">Share your files</a>
+            <a class="button" href="/view">View shared files</a>
+        </div>
+    </header>
 
-<p>
-    DVSS is a free Decentralized Video Streaming Service.
-</p>
+    <main>
+        <div style="background-color: #333; padding: 1em;">
+            <h1>DVSS</h1>
 
-<hr>
+            <p>
+                DVSS is a free Decentralized Video Streaming Service.
+            </p>
 
-<div style="text-align: center;">
-    <h1>DISCLAIMER</h1>
-    <h2>You must never share sensitive files or folders on this website, I am not responsible for any loss or data theft!</h2>
+            <hr>
+
+            <div style="text-align: center;">
+                <h1>DISCLAIMER</h1>
+                <h2>You must never share sensitive files or folders on this website, I am not responsible for any loss
+                    or
+                    data theft!</h2>
+            </div>
+
+            <hr>
+
+            <h2>How to use?</h2>
+            <h3>Share my files</h3>
+            <h4>What files can be shared?</h4>
+            To share a folder, you must be using Chrome or one of its derivatives (Chromium-based browsers).
+            You can currently only share MP4 video files.<br>
+            MP4 files must be fragmented in order to be read by the browser as a video stream.<br>
+
+            <div style="text-decoration: line-through; color: #aaa; margin: 1em 0;">
+                You can either convert the file by yourself using ffmpeg using this command:
+                <pre>ffmpeg -i non_fragmented.mp4 -movflags frag_keyframe+empty_moov+default_base_moof fragmented.mp4</pre>
+                Or let the browser convert the file. The video stream is sent while the video is being converted,
+                which breaks the user experience.<br>
+                Note that the later is very slow and heavy on the CPU.<br>
+            </div>
+
+            The files will be automatically fragmented by the browser.<br>
+
+            In the future you'll be able to share images, musics, text files (as live edit, similar to Google Docs') and
+            other files (as download).
+
+            <h2>Resources used</h2>
+            <p>
+                Curious about how to remake something similar on your own? Here are some resources I used to make this.
+            </p>
+            <ul>
+                <li>WebRTC with <a href="https://peerjs.com/">PeerJS</a></li>
+                <li>HTTP server with <a href="https://expressjs.com/">Express</a></li>
+                <li style="text-decoration: line-through">WebSockets <a href="https://socket.io/">Socket.io</a></li>
+                <li>Convert MP4 files <a href="https://github.com/gpac/mp4box.js">mp4box.js</a></li>
+                <li style="text-decoration: line-through">Convert MP4 files within the browser with <a href="https://github.com/ffmpegwasm/ffmpeg.wasm">ffmpeg.wasm</a>
+                </li>
+                <li>
+                    MDN
+                    <a href="https://developer.mozilla.org/en-US/docs/Web/API/Media_Source_Extensions_API/Transcoding_assets_for_MSE">
+                        Transcoding assets for Media Source Extensions
+                    </a>
+                </li>
+                <li>
+                    MDN
+                    <a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaStream">MediaStream</a>
+                    used to read video stream
+                </li>
+                <li>
+                    MDN
+                    <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API">
+                    File System Access API</a>
+                    used to access the files on your computer
+                </li>
+            </ul>
+
+            <h2>TODO</h2>
+            <ul>
+                <li>Remove PeerJS</li>
+                <li style="text-decoration: line-through">Remove Socket.io</li>
+                <li>Stream audio files</li>
+                <li>Share images</li>
+                <li>Live edit text files</li>
+                <li>Download other files (zip, jar, executables and whatnot)</li>
+            </ul>
+        </div>
+    </main>
+
+    <footer>
+        <div>© Copyright Quozul.dev 2021</div>
+    </footer>
 </div>
-
-<hr>
-
-<h2><a href="/host">Share your files</a></h2>
-<h2><a href="/view">View shared files</a></h2>
-
-<h2>How to use?</h2>
-<h3>Share my files</h3>
-<h4>What files can be shared?</h4>
-<p>
-    To share a folder, you must be using Chrome or one of its derivatives (Chromium-based browsers).
-    You can currently only share MP4 video files.<br>
-    MP4 files must be fragmented in order to be read by the browser as a video stream.<br>
-    You can either convert the file by yourself using ffmpeg using this command:
-    <pre>ffmpeg -i non_fragmented.mp4 -movflags frag_keyframe+empty_moov+default_base_moof fragmented.mp4</pre>
-    Or let the browser convert the file. The video stream is sent while the video is being converted, which breaks the user experience.<br>
-    Note that the later is very slow and heavy on the CPU.<br>
-    In the future you'll be able to share images, musics, text files (as live edit, similar to Google Docs') and other files (as download).
-</p>
-
-<h2>Developer journal</h2>
-<p>
-    Curious about how to remake something similar on your own? Here are some resources I used to make this.
-</p>
-<ul>
-    <li>WebRTC with <a href="https://peerjs.com/">PeerJS</a></li>
-    <li>HTTP server with <a href="https://expressjs.com/">Express</a></li>
-    <li>WebSockets <a href="https://socket.io/">Socket.io</a></li>
-    <li>Get MP4 file information with <a href="https://github.com/gpac/mp4box.js">mp4box.js</a></li>
-    <li>Convert MP4 files within the browser with <a href="https://github.com/ffmpegwasm/ffmpeg.wasm">ffmpeg.wasm</a></li>
-    <li>MDN <a href="https://developer.mozilla.org/en-US/docs/Web/API/Media_Source_Extensions_API/Transcoding_assets_for_MSE">Transcoding assets for Media Source Extensions</a></li>
-    <li>MDN <a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaStream">MediaStream</a> used to read video stream</li>
-    <li>MDN <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API">File System Access API</a> used to access the files on your computer</li>
-</ul>
-
-<h2>TODO</h2>
-<ul>
-    <li>Remove PeerJS</li>
-    <li>Remove Socket.io</li>
-    <li>Stream audio files</li>
-    <li>Share images</li>
-    <li>Live edit text files</li>
-    <li>Download other files (zip, jar, executables and whatnot)</li>
-</ul>
 </body>
 </html>
