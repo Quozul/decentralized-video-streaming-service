@@ -91,11 +91,12 @@ async function * getSegments(file) {
 }
 
 /**
- * @param {File} file
- * @returns {Promise<Blob>}
+ * Returns a random frame from a video file
+ * @param {File} file Video file
+ * @returns {Promise<Blob>} Random frame from the video
  */
 function getThumbnail(file) {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
         const video = document.createElement("video");
         video.style.display = "none";
         document.body.append(video);
@@ -115,8 +116,7 @@ function getThumbnail(file) {
             context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
             const blob = await canvas.convertToBlob({
-                type: "image/jpeg",
-                quality: 0.95
+                type: "image/png",
             });
 
             resolve(blob);
@@ -124,6 +124,8 @@ function getThumbnail(file) {
             video.remove();
             context.clearRect(0, 0, canvas.width, canvas.height);
         });
+
+        video.addEventListener("error", reject);
     });
 }
 

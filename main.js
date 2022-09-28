@@ -5,8 +5,8 @@ const express = require('express');
 const app = express();
 
 const options = {
-    key: fs.readFileSync('/etc/letsencrypt/live/dvss.quozul.dev/privkey.pem'),
-    cert: fs.readFileSync('/etc/letsencrypt/live/dvss.quozul.dev/fullchain.pem'),
+    key: fs.readFileSync(__dirname + '/ssl/file.pem'),
+    cert: fs.readFileSync(__dirname + '/ssl/file.crt'),
 };
 const serverPort = 8080;
 
