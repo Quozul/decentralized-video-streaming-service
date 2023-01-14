@@ -8,7 +8,9 @@ npm i
 npm run dev
 ```
 
-Open [https://localhost:8080/](localhost:8080) on Chrome Canary or Firefox Nightly.
+Open [http://localhost:8080/](localhost:8080) on Chrome Canary or Firefox Nightly.
+
+The server must be in https in order to work.
 
 ## How it works
 TODO
